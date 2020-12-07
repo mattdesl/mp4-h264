@@ -4,6 +4,8 @@
 
 Standalone MP4 (H264) encoder compiled with Emscripten into WASM.
 
+> ✨ [Live Demo](https://codepen.io/mattdesl/full/MWjeJMg)
+
 Features:
 
 - Encode RGB or YUV data into H264 contained in a MP4 file
@@ -22,7 +24,7 @@ Possible Future Features:
 ## Example
 
 ```js
-import loadEncoder from "https://unpkg.com/mp4-h264@1.0.2/build/mp4-encoder.js";
+import loadEncoder from "https://unpkg.com/mp4-h264";
 
 (async () => {
   // Load the WASM module first
@@ -50,7 +52,7 @@ import loadEncoder from "https://unpkg.com/mp4-h264@1.0.2/build/mp4-encoder.js";
 })();
 ```
 
-See [./test/simple.html](./test/simple.html) for an easy example.
+See [./test/simple.html](./test/simple.html) for an easy example, or a [live demo on CodePen](https://codepen.io/mattdesl/full/MWjeJMg).
 
 ## Advanced Examples
 

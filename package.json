@@ -2,7 +2,7 @@
   "name": "mp4-h264",
   "version": "1.0.1",
   "description": "fast client-side MP4 H264 video encoding",
-  "main": "./build/index.js",
+  "main": "./build/mp4-encoder.js",
   "license": "MIT",
   "author": {
     "name": "Matt DesLauriers",
