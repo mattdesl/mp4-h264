@@ -2,7 +2,7 @@
   "name": "mp4-h264",
   "version": "1.0.0",
   "description": "fast client-side video encoding",
-  "main": "./src/index.js",
+  "main": "./build/index.js",
   "license": "MIT",
   "author": {
     "name": "Matt DesLauriers",
