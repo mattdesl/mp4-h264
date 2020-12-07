@@ -4,3 +4,5 @@ node_modules
 .DS_Store
 .npmignore
 src/mp4-encoder/embuild/
+src/mp4-encoder
+test/
