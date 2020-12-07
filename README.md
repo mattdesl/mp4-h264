@@ -22,7 +22,7 @@ Possible Future Features:
 ## Example
 
 ```js
-import loadEncoder from "mp4-h264";
+import loadEncoder from "https://unpkg.com/mp4-h264@1.0.2/build/mp4-encoder.js";
 
 (async () => {
   // Load the WASM module first
