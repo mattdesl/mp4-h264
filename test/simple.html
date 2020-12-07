@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+  </head>
+
+  <body>
+    <div>Encoding 100 frames at 800x600</div>
+    <canvas
+      width="800"
+      height="600"
+      style="width: 50vw; height: auto; border: 1px solid black"
+    ></canvas
+    ><br />
+    <script type="module">
+      import loadEncoder from "/build/mp4-encoder.js";
+
+      const canvas = document.getElementsByTagName("canvas")[0];
+      const ctx = canvas.getContext("2d");
+      const drawFrame = (interpolant) => {
+        ctx.fillStyle = "#0000FF";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = "#FF0000";
+        ctx.fillRect(
+          0,
+          0,
+          canvas.width * interpolant,
+          canvas.height * interpolant
+        );
+      };
+
+      const download = (buf, filename) => {
+        const url = URL.createObjectURL(new Blob([buf], { type: "video/mp4" }));
+        const anchor = document.createElement("a");
+        anchor.href = url;
+        anchor.download = filename || "download";
+        anchor.click();
+      };
+
+      (async () => {
+        // You can enable this if you have WASM SIMD support,
+        // you can detect it with "wasm-feature-detect" module
+        const simd = false;
+
+        // We first need to load the encoder WASM
+        const Encoder = await loadEncoder({
+          // Whether to search for '.simd.wasm' file
+          simd,
+
+          // Note: You can override the WASM file directory locator like so
+          // getWasmPath (file, scriptDir, isSimd) {
+          //   return '/my-wasm-dir/' + file;
+          // }
+        });
+
+        // Now we can create an encoder interface
+        const encoder = Encoder.create({
+          width: canvas.width,
+          height: canvas.height,
+        });
+
+        let frame = 0;
+        let totalFrames = 100;
+        requestAnimationFrame(loop);
+
+        function loop() {
+          if (frame >= totalFrames) {
+            const buf = encoder.end();
+            download(buf);
+            return;
+          }
+
+          requestAnimationFrame(loop);
+
+          drawFrame(frame / (totalFrames - 1));
+          const rgba = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+          encoder.encodeRGB(rgba);
+          frame++;
+        }
+      })();
+    </script>
+    <script></script>
+  </body>
+</html>

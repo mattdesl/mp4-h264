@@ -1,0 +1,6 @@
+bower_components
+node_modules
+*.log
+.DS_Store
+.npmignore
+src/mp4-encoder/embuild/
