@@ -259,6 +259,16 @@ See the [./test](./test) folder for examples including SIMD, multi-threading, fa
 
 If you think you can help, please open an issue.
 
+## Building from C/C++ Source
+
+Currently you need Emscripten with SIMD supported. Then modify the paths in `./src/mp4-encoder/build.sh` to your emcc build. Then, from this package's folder, run:
+
+```sh
+./src/mp4-encoder/build.sh 
+```
+
+*TODO - could do with help improving this build step*
+
 ## Credits
 
 This was originally based on [h264-mp4-encoder](https://github.com/TrevorSundberg/h264-mp4-encoder), but it's been modified quite a bit to reduce the size (~1.7MB to ~150KB), use a different architecture for faster encoding and streamed writing, and use different C libraries (minimp4 instead of libmp4v2).

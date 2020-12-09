@@ -219,9 +219,7 @@ void encode_rgb (uintptr_t encoder_ptr, uintptr_t rgb_buffer_ptr, size_t stride,
   // TODO: this could probably be optimized somehow ... ?
   for (size_t y = 0; y < height; y++)
   {
-    bool m = !(y % 2);
-    if (flip) m = !m;
-    if (m)
+    if (!(y % 2))
     {
       for (size_t x = 0; x < width; x += 2)
       {
