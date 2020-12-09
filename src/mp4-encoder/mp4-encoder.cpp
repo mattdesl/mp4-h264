@@ -1,6 +1,8 @@
 #include <emscripten/bind.h>
 #include <emscripten/val.h>
 
+
+
 #define ALIGNED_ALLOC(n, size) aligned_alloc(n, (size + n - 1) / n * n)
 #define TIMESCALE 90000
 
@@ -25,6 +27,7 @@ typedef struct Encoder {
   uint32_t width;
   uint32_t height;
   uint32_t fps;
+  bool rgb_flip_y;
   
   MP4E_mux_t *mux = nullptr;
   mp4_h26x_writer_t mp4writer;
@@ -92,11 +95,13 @@ uintptr_t create_encoder(val options, val write)
   int fragmentation = option_exists(options, "fragmentation") ? options["fragmentation"].as<int>() : 0;
   int sequential = option_exists(options, "sequential") ? options["sequential"].as<int>() : 0;
   int temporalDenoise = option_exists(options, "temporalDenoise") ? options["temporalDenoise"].as<int>() : 0;
+  bool rgb_flip_y = option_exists(options, "rgbFlipY") ? options["rgbFlipY"].as<bool>() : false;
 
   #ifdef DEBUG
   printf("width=%d\n", width);
   printf("height=%d\n", height);
   printf("fps=%d\n", fps);
+  printf("rgbFlipY=%d\n", rgb_flip_y);
   printf("speed=%d\n", speed);
   printf("kbps=%d\n", kbps);
   printf("quantizationParameter=%d\n", quantizationParameter);
@@ -113,6 +118,7 @@ uintptr_t create_encoder(val options, val write)
   encoder->width = width;
   encoder->height = height;
   encoder->fps = fps;
+  encoder->rgb_flip_y = rgb_flip_y;
 
   // Initialize MP4 writer
   int is_hevc = 0;
@@ -208,34 +214,38 @@ void encode_rgb (uintptr_t encoder_ptr, uintptr_t rgb_buffer_ptr, size_t stride,
   uint32_t upos = image_size;
   uint32_t vpos = upos + upos / 4;
   uint32_t i = 0;
-
+  bool flip = encoder->rgb_flip_y;
+  
   // TODO: this could probably be optimized somehow ... ?
-  for (size_t line = 0; line < height; ++line)
+  for (size_t y = 0; y < height; y++)
   {
-    if (!(line % 2))
+    bool m = !(y % 2);
+    if (flip) m = !m;
+    if (m)
     {
       for (size_t x = 0; x < width; x += 2)
       {
-        uint8_t r = rgb[stride * i];
-        uint8_t g = rgb[stride * i + 1];
-        uint8_t b = rgb[stride * i + 2];
+        uint32_t k = flip ? (x + (height - y - 1) * width) : i;
+        uint32_t kidx = stride * k;
+
+        uint8_t r = rgb[kidx];
+        uint8_t g = rgb[kidx + 1];
+        uint8_t b = rgb[kidx + 2];
         yuv[i++] = ((66 * r + 129 * g + 25 * b) >> 8) + 16;
         yuv[upos++] = ((-38 * r + -74 * g + 112 * b) >> 8) + 128;
         yuv[vpos++] = ((112 * r + -94 * g + -18 * b) >> 8) + 128;
-        r = rgb[stride * i];
-        g = rgb[stride * i + 1];
-        b = rgb[stride * i + 2];
-        yuv[i++] = ((66 * r + 129 * g + 25 * b) >> 8) + 16;
+        
+        kidx = stride * (k + 1);
+        yuv[i++] = ((66 * rgb[kidx] + 129 * rgb[kidx+1] + 25 * rgb[kidx+2]) >> 8) + 16;
       }
     }
     else
     {
       for (size_t x = 0; x < width; x += 1)
       {
-        uint8_t r = rgb[stride * i];
-        uint8_t g = rgb[stride * i + 1];
-        uint8_t b = rgb[stride * i + 2];
-        yuv[i++] = ((66 * r + 129 * g + 25 * b) >> 8) + 16;
+        uint32_t k = flip ? (x + (height - y - 1) * width) : i;
+        uint32_t kidx = stride * k;
+        yuv[i++] = ((66 * rgb[kidx] + 129 * rgb[kidx+1] + 25 * rgb[kidx+2]) >> 8) + 16;
       }
     }
   }

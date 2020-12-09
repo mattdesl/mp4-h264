@@ -252,6 +252,7 @@ See the [./test](./test) folder for examples including SIMD, multi-threading, fa
 
 ## TODOs
 
+- Better error handling
 - Better support for Webpack, Parcel, esbuild, Rollup etc.
 
 ## Contributing

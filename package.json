@@ -15,10 +15,10 @@
   },
   "dependencies": {},
   "devDependencies": {
-    "budo": "^11.6.4"
+    "serve": "^11.3.2"
   },
   "scripts": {
-    "test": "budo --no-live"
+    "test": "serve ."
   },
   "keywords": [
     "fast",

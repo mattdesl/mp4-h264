@@ -14,6 +14,8 @@ const writeFile = promisify(fs.writeFile);
 
   console.time("encoding");
   const encoder = Encoder.create({
+    // Flip RGB image vertically
+    // rgbFlipY: true,
     width,
     height,
     fps,
@@ -45,9 +47,10 @@ function draw(t, width, height, stride = 3) {
       const k = Math.sin((dist / width) * 4 + t * Math.PI * 2) * 0.5 + 0.5;
       const a = Math.sin((dist / width) * 2 - t * Math.PI * 2) * 0.5 + 0.5;
 
-      const r = k * 255;
-      const g = a * 255;
-      const b = (Math.sin(t * Math.PI * 2) * 0.5 + 0.5) * 255;
+      const L = y / height;
+      const r = k * 255 * L;
+      const g = a * 255 * L;
+      const b = (Math.sin(t * Math.PI * 2) * 0.5 + 0.5) * 255 * L;
       pixels[i * stride + 0] = r;
       pixels[i * stride + 1] = g;
       pixels[i * stride + 2] = b;
