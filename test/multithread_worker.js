@@ -8,6 +8,7 @@
   });
 
   let encoder;
+  let sab;
 
   self.addEventListener("message", ({ data }) => {
     if (data.event === "start") start(data.settings);
@@ -18,11 +19,14 @@
   self.postMessage({ event: "ready" });
 
   function start(settings) {
+    sab = settings.sab;
+    uint8 = new Uint8Array(sab);
     encoder = Encoder.create(settings);
   }
 
   function next(buffer) {
-    encoder.encodeRGB(buffer);
+    // console.log(buffer);
+    encoder.encodeRGB(uint8);
   }
 
   function finish() {

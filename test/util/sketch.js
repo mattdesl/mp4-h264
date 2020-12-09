@@ -1,9 +1,9 @@
 import { createCanvas } from "./canvas.js";
 
 export const settings = {
-  duration: 5,
+  duration: 3,
   fps: 60,
-  dimensions: [1920, 1080],
+  dimensions: [2048, 2048],
 };
 
 export function sketch(width = 256, height = 256) {

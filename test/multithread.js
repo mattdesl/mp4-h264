@@ -10,6 +10,8 @@ import { settings, sketch, show } from "./util/sketch.js";
   const totalFrames = Math.round(fps * duration);
   const pixelReader = PixelReader(context);
   const stride = pixelReader.channels;
+  const sab = new SharedArrayBuffer(width * height * stride);
+  const uint8 = new Uint8Array(sab);
 
   const worker = new Worker("./multithread_worker.js");
   worker.addEventListener("message", ({ data }) => {
@@ -28,6 +30,7 @@ import { settings, sketch, show } from "./util/sketch.js";
       event: "start",
       settings: {
         ...settings,
+        sab,
         width,
         height,
         fps,
@@ -54,8 +57,9 @@ import { settings, sketch, show } from "./util/sketch.js";
 
         render({ playhead });
 
-        const buffer = pixelReader.read();
-        worker.postMessage({ event: "frame", buffer }, [buffer.buffer]);
+        pixelReader.readInto(uint8, 0);
+        const buffer = sab;
+        worker.postMessage({ event: "frame", buffer });
 
         frame++;
         return true;
