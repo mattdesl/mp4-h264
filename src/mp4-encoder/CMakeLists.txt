@@ -11,8 +11,8 @@ add_executable(mp4-encoder
 )
 
 target_include_directories(mp4-encoder PRIVATE
-    "minimp4"
-    "minih264"
+  "minimp4"
+  "minih264"
 )
 
 if(EMSCRIPTEN)
@@ -21,17 +21,11 @@ if(EMSCRIPTEN)
         -s ALLOW_MEMORY_GROWTH=1\
         -s DISABLE_EXCEPTION_CATCHING=1\
         -s WASM=1\
-        -msimd128\
-        -msse\
-        -msse2\
-        -msse3\
         -s IGNORE_MISSING_MAIN\
         -s TEXTDECODER=0\
         -s MODULARIZE=1\
-        -s EXPORT_ES6=1\
         -s FILESYSTEM=0\
         -s ASSERTIONS=0\
-        -s ENVIRONMENT=web,worker\
         -Wno-invalid-source-encoding\
         -Wno-tautological-pointer-compare\
         --pre-js ../api.js\
@@ -45,11 +39,50 @@ if(EMSCRIPTEN)
       PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-fno-exceptions>
     )
     
-    add_compile_definitions(EMSCRIPTEN_SIMD_ENABLED)
+    option(USE_SIMD "Use SIMD" OFF)
+    option(WEB "Use Web Env" OFF)
 
-    set_target_properties(
-        mp4-encoder
-        PROPERTIES
-            SUFFIX ".js"
-    )
+    if (WEB)
+      set(CMAKE_CXX_FLAGS "\
+          ${CMAKE_CXX_FLAGS}\
+          -s EXPORT_ES6=1\
+          -s ENVIRONMENT=web,worker\
+      ")
+
+      if(USE_SIMD)
+        set(CMAKE_CXX_FLAGS "\
+            ${CMAKE_CXX_FLAGS}\
+            -msimd128\
+            -msse\
+            -msse2\
+            -msse3\
+        ")
+        add_compile_definitions(EMSCRIPTEN_SIMD_ENABLED)
+        set_target_properties(
+            mp4-encoder
+            PROPERTIES
+                SUFFIX ".simd.js"
+        )
+      else()
+        set_target_properties(
+            mp4-encoder
+            PROPERTIES
+                SUFFIX ".js"
+        )
+      endif(USE_SIMD)
+    else ()
+      set(CMAKE_CXX_FLAGS "\
+          ${CMAKE_CXX_FLAGS}\
+          -s EXPORT_ES6=0\
+          -s ENVIRONMENT=node\
+      ")
+      set_target_properties(
+          mp4-encoder
+          PROPERTIES
+              SUFFIX ".node.js"
+      )
+    endif(WEB)
+
+    unset(WEB CACHE)
+    unset(USE_SIMD CACHE)
 endif()

@@ -3,3 +3,4 @@ node_modules
 *.log
 .DS_Store
 src/mp4-encoder/embuild/
+test/node-output.mp4

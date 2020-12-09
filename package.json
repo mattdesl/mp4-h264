@@ -2,14 +2,17 @@
   "name": "mp4-h264",
   "version": "1.0.3",
   "description": "fast client-side MP4 H264 video encoding",
-  "main": "./build/mp4-encoder.js",
+  "main": "./build/mp4-encoder.node.js",
+  "unpkg": "./build/mp4-encoder.js",
+  "jsdelivr": "./build/mp4-encoder.js",
+  "module": "./build/mp4-encoder.js",
+  "browser": "./build/mp4-encoder.js",
   "license": "MIT",
   "author": {
     "name": "Matt DesLauriers",
     "email": "dave.des@gmail.com",
     "url": "https://github.com/mattdesl"
   },
-  "type": "module",
   "dependencies": {},
   "devDependencies": {
     "budo": "^11.6.4"

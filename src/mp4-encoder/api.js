@@ -72,11 +72,9 @@ Module['create'] = function createEncoder(settings = {}) {
   }
 
   return {
-    'instance': Module,
     'memory': function () {
       return Module['HEAPU8'];
     },
-    'encoder_pointer': encoder_pointer,
     'getYUVPointer': getYUV,
     'getRGBPointer': getRGB,
     'end': function () {
@@ -100,7 +98,7 @@ Module['create'] = function createEncoder(settings = {}) {
     },
     'encodeRGB': function (buffer) {
       if (buffer.length !== (width * height * stride)) {
-        throw new Error('Expected buffer to be sized (width * height * stride)');
+        throw new Error('Expected buffer to be sized (width * height * ' + stride + ')');
       }
       const rgb = getRGB();
       const yuv = getYUV();
