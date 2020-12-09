@@ -1,6 +1,6 @@
 {
   "name": "mp4-h264",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "fast client-side MP4 H264 video encoding",
   "main": "./build/mp4-encoder.node.js",
   "unpkg": "./build/mp4-encoder.js",
