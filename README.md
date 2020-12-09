@@ -145,11 +145,17 @@ Creates a new encoder interface with options:
 
 #### `encoder.encodeRGB(pixels)`
 
-Encode RGB(A) pixels, a flat Uint8Array or Uint8ClampedArray. This will use the same `stride` that you specified when creating the encoder (default 4). Use a `stride` of 3 if you only have flat RGB bytes, or a stride of 4 if you have RGBA bytes (which is what you get from `<canvas>` APIs).
+Encode a frame of RGB(A) pixels, a flat Uint8Array or Uint8ClampedArray. This will use the same `stride` that you specified when creating the encoder (default 4). Use a `stride` of 3 if you only have flat RGB bytes, or a stride of 4 if you have RGBA bytes (which is what you get from `<canvas>` APIs).
+
+This will convert RGB to YUV natively (in WASM) in order to write a single H264 frame of video.
 
 #### `encoder.encodeYUV(yuv)`
 
-Encodes a YUV image. See [./test/util/RGBAtoYUV.js](./test/util/RGBAtoYUV.js) for an example of how to go from RGB to YUV.
+Encodes an image that is already in YUV layout, saving the need to do the RGB > YUV conversion step.
+
+This may be useful if you already have YUV data, or if you are using a hardware solution to convert RGB to YUV, or if you are multithreading and your renderer thread is idling (in which case you may benefit in memory and performance by converting RGB to YUV in the renderer thread, and then sending that to the encoder thread).
+
+See [./test/util/RGBAtoYUV.js](./test/util/RGBAtoYUV.js) for an example of how to go from RGB to YUV from JavaScript.
 
 #### `uint8 = encoder.end()`
 
