@@ -112,34 +112,55 @@ export default function PixelReader(context, opts = {}) {
     bufferSize,
     channels,
     readInto(memory, pointer) {
-      if (useGL && webgl2) {
+      if (useGL) {
+        // TODO... clean this up a bit
         let input;
         if (usingBitmap) {
           input = canvas.transferToImageBitmap();
+          gl.texImage2D(
+            gl.TEXTURE_2D,
+            0,
+            glInternalFormat,
+            glFormat,
+            gl.UNSIGNED_BYTE,
+            input
+          );
         } else {
           input = canvas;
+          gl.texSubImage2D(
+            gl.TEXTURE_2D,
+            0,
+            0,
+            0,
+            width,
+            height,
+            glFormat,
+            gl.UNSIGNED_BYTE,
+            input
+          );
         }
-        gl.texSubImage2D(
-          gl.TEXTURE_2D,
-          0,
-          0,
-          0,
-          width,
-          height,
-          glFormat,
-          gl.UNSIGNED_BYTE,
-          input
-        );
-        gl.readPixels(
-          0,
-          0,
-          width,
-          height,
-          glFormat,
-          gl.UNSIGNED_BYTE,
-          memory,
-          pointer
-        );
+        if (webgl2) {
+          gl.readPixels(
+            0,
+            0,
+            width,
+            height,
+            glFormat,
+            gl.UNSIGNED_BYTE,
+            memory,
+            pointer
+          );
+        } else {
+          gl.readPixels(
+            0,
+            0,
+            width,
+            height,
+            glFormat,
+            gl.UNSIGNED_BYTE,
+            memory.subarray(pointer)
+          );
+        }
         if (usingBitmap) input.close();
       } else {
         const buf = this.read();
