@@ -19,32 +19,25 @@ files = files.map((f) => {
   };
 });
 files.sort((a, b) => a.frame - b.frame);
-files = files.slice(0, 30);
 
 (async () => {
   const Encoder = await loadEncoder();
   let encoder;
   const fps = 30;
+  const totalFrames = files.length;
+  const duration = totalFrames / fps; // in seconds
+  const desiredSizeInMBs = 10;
 
   console.time("encoding");
-  await files.reduce(async (p, f) => {
+  await files.reduce(async (p, f, i, list) => {
     await p;
     const file = f.file;
     const rgba = await getPixels(path.resolve(sequenceDir, file));
     const [width, height, stride] = rgba.shape;
-
-    // 1 sec = 1 mb
-    // (1 * 8192) / 1
-    const desiredMBs = 1;
-    const seconds = 1;
     if (!encoder) {
-      // const vbv_kbits = 100;
-      // const bitrate_kbits = 6000;
-      // const bitrate_bytes = (bitrate_kbits * 1000) / 8;
-      // const bitrate_per_frame_bytes = Math.floor(bitrate_bytes / fps);
-
-      // we first determine
-      const kbps = 24000;
+      const sizeInKilobits = desiredSizeInMBs * 8000;
+      const sizeInKilobitsPerSecond = sizeInKilobits / duration;
+      const kbps = sizeInKilobitsPerSecond;
       encoder = Encoder.create({
         width,
         height,
@@ -52,19 +45,14 @@ files = files.slice(0, 30);
         stride,
         kbps,
         qpMin: 10,
-        qpMax: 30,
-        temporalDenoise: true,
+        qpMax: 50,
+        temporalDenoise: false,
         groupOfPictures: fps,
-        // temporalDenoise: true,
-        // speed: 0,
-        // frameBytes: bitrate_per_frame_bytes,
-        // qpMin: 10,
-        // qpMax: 30,
-        // vbvSize: (vbv_kbits * 1000) / 8,
+        speed: 0,
       });
     }
 
-    console.log("Encoding", f.frame, files.length);
+    console.log("Encoding", f.frame, list.length);
     encoder.encodeRGB(rgba.data);
   }, Promise.resolve());
   console.timeEnd("encoding");

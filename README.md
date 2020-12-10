@@ -1,5 +1,7 @@
 # mp4-h264
 
+###### (This module is still in development, and some things may change)
+
 Standalone MP4 (H264) encoder compiled with Emscripten into WASM.
 
 > ✨ [Live Demo](https://codepen.io/mattdesl/full/MWjeJMg)
@@ -139,7 +141,7 @@ Creates a new encoder interface with options:
 - `quantizationParameter` (default 10) - the constant value to use when `kbps` is not set, higher means better compression, and lower means better quality `[10..51]`
 - `qpMin` (default 10) - when `kbps` is specified, this is the lower quantization boundary `[10..51]`
 - `qpMax` (default 50) - when `kbps` is specified, this is the upper quantization boundary `[10..51]`
-- `vbvSize` (default -1) - set to a negative value to use a default 2 second buffer, or specify `0` to disable Video Buffering Verifier (VBV), or set to a number to specify the size in bytes of the vbv buffer
+- `vbvSize` (default `-1`) - set to a negative value to use a default 2 second buffer, or specify `0` to disable Video Buffering Verifier (VBV), or set to a number to specify the size in bytes of the vbv buffer
 - `groupOfPictures` (default 20) - how often a keyframe occurs (key frame period, also known as GOP)
 - `desiredNaluBytes` (default 0) - each NAL unit will be approximately capped at this size (0 means unlimited)
 - `temporalDenoise` (default false) - use temporal noise supression
@@ -255,6 +257,32 @@ const mp4File = Buffer.concat(outputs);
   - If you are rendering a WebGL2 app, you might be able to do this directly from your app's rendering context to avoid any copies
 - Use OffscreenCanvas if supported and your rendering doesn't need to be visible to the user
 
+## Tips for File Size vs. Quality
+
+The default setting produces high quality video, but with very high file sizes (note: the defaults may change as this module is still a WIP).
+
+If you are concerned about filesize, you should set the `kbps` parameter instead of using a constant `quantizationParameter` (which defaults to `10`, i.e. the best quality).
+
+First, determine what you think would be an acceptable output size based on your video. Let's say you're encoding a 10 second animation and want it to be around 10MB in file size.
+
+```js
+const duration = 10; // in seconds
+const sizeInMBs = 10; // desired output size
+const sizeInKilobits = sizeInMBs * 8000; // conversion
+
+// this is the value passed into the encoder
+const kbps = sizeInKilobits / duration;
+
+const encoder = Encoder.create({
+  width,
+  height,
+  fps,
+  kbps
+})
+```
+
+This should produce a video file around 10 MB, with a quality to match. To improve quality, you can try to lower the `{ speed }` option, or lower the upper bound of `{ qpMax }` from 51 to something smaller (although doing so may increase file size beyond your desired amount).
+
 ## More Advanced Examples
 
 See the [./test](./test) folder for examples including SIMD, multi-threading, fast pixel access, and more.
@@ -263,6 +291,7 @@ See the [./test](./test) folder for examples including SIMD, multi-threading, fa
 
 - Better error handling
 - Better support for Webpack, Parcel, esbuild, Rollup etc.
+- Expose more encoder options from C/C++
 
 ## Contributing
 
