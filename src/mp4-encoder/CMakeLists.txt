@@ -18,7 +18,8 @@ target_include_directories(mp4-encoder PRIVATE
 if(EMSCRIPTEN)
     set(CMAKE_CXX_FLAGS "\
         ${CMAKE_CXX_FLAGS}\
-        -s ALLOW_MEMORY_GROWTH=1\
+        -s ALLOW_MEMORY_GROWTH=0\
+        -s TOTAL_MEMORY=50MB\
         -s DISABLE_EXCEPTION_CATCHING=1\
         -s WASM=1\
         -s IGNORE_MISSING_MAIN\
@@ -32,6 +33,8 @@ if(EMSCRIPTEN)
         -O3\
         --closure 1\
         -g0\
+        -s USE_PTHREADS=1\
+        -s EXPORT_NAME=loadMP4H264Encoder\
         --bind\
     ")
 

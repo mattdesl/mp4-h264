@@ -10,13 +10,14 @@ import { settings, sketch, show } from "./util/sketch.js";
   const totalFrames = Math.round(fps * duration);
   const pixelReader = PixelReader(context);
   const stride = pixelReader.channels;
-  const sab = new SharedArrayBuffer(width * height * stride);
-  const uint8 = new Uint8Array(sab);
+  // const sab = new SharedArrayBuffer(width * height * stride);
+  // const uint8 = new Uint8Array(sab);
 
   const worker = new Worker("./multithread_worker.js");
   worker.addEventListener("message", ({ data }) => {
-    if (data.event === "ready") startEncoding();
-    else if (data.event === "end") {
+    if (data.event === "ready") {
+      startEncoding();
+    } else if (data.event === "end") {
       console.timeEnd("encoding");
       show(data.buffer, width, height);
     }
@@ -24,21 +25,31 @@ import { settings, sketch, show } from "./util/sketch.js";
 
   function startEncoding() {
     let frame = 0;
+    let rgb_pointer;
+    let memory;
+    let uint8;
+
+    worker.addEventListener("message", ({ data }) => {
+      if (data.event === "pointers") {
+        rgb_pointer = data.rgb_pointer;
+        memory = data.memory;
+        console.log(memory);
+        uint8 = new Uint8Array(memory.buffer);
+        loop();
+      }
+    });
 
     console.time("encoding");
     worker.postMessage({
       event: "start",
       settings: {
         ...settings,
-        sab,
         width,
         height,
         fps,
         stride,
       },
     });
-
-    loop();
 
     function loop() {
       if (next()) {
@@ -57,9 +68,9 @@ import { settings, sketch, show } from "./util/sketch.js";
 
         render({ playhead });
 
-        pixelReader.readInto(uint8, 0);
-        const buffer = sab;
-        worker.postMessage({ event: "frame", buffer });
+        pixelReader.readInto(uint8, rgb_pointer);
+        // const buffer = sab;
+        worker.postMessage({ event: "frame" });
 
         frame++;
         return true;

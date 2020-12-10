@@ -7,26 +7,29 @@
     simd: isSimdSupported,
   });
 
+  const memory = Encoder.wasmMemory;
   let encoder;
-  let sab;
+  let rgb_pointer;
+  let yuv_pointer;
 
   self.addEventListener("message", ({ data }) => {
-    if (data.event === "start") start(data.settings);
-    else if (data.event === "frame") next(data.buffer);
+    if (data.event === "start") {
+      start(data.settings);
+      self.postMessage({ event: "pointers", memory: memory, rgb_pointer });
+    } else if (data.event === "frame") next(data.buffer);
     else if (data.event === "finish") finish();
   });
 
   self.postMessage({ event: "ready" });
 
   function start(settings) {
-    sab = settings.sab;
-    uint8 = new Uint8Array(sab);
     encoder = Encoder.create(settings);
+    rgb_pointer = encoder.getRGBPointer();
+    yuv_pointer = encoder.getYUVPointer();
   }
 
-  function next(buffer) {
-    // console.log(buffer);
-    encoder.encodeRGB(uint8);
+  function next() {
+    encoder.encodeRGBPointer();
   }
 
   function finish() {
