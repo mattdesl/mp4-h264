@@ -15,6 +15,7 @@
   },
   "dependencies": {},
   "devDependencies": {
+    "get-pixels": "^3.3.2",
     "serve": "^11.3.2"
   },
   "scripts": {

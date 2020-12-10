@@ -26,7 +26,7 @@ using namespace emscripten;
 typedef struct Encoder {
   uint32_t width;
   uint32_t height;
-  uint32_t fps;
+  float fps;
   bool rgb_flip_y;
   
   MP4E_mux_t *mux = nullptr;
@@ -86,7 +86,7 @@ uintptr_t create_encoder(val options, val write)
 {
   uint32_t width = options["width"].as<uint32_t>();
   uint32_t height = options["height"].as<uint32_t>();
-  uint32_t fps = option_exists(options, "fps") ? options["fps"].as<uint32_t>() : 30;
+  float fps = option_exists(options, "fps") ? options["fps"].as<float>() : 30.0f;
   uint32_t speed = option_exists(options, "speed") ? options["speed"].as<uint32_t>() : 10;
   uint32_t kbps = option_exists(options, "kbps") ? options["kbps"].as<uint32_t>() : 0;
   uint32_t quantizationParameter = option_exists(options, "quantizationParameter") ? options["quantizationParameter"].as<uint32_t>() : 10;
@@ -104,12 +104,14 @@ uintptr_t create_encoder(val options, val write)
   #ifdef DEBUG
   printf("width=%d\n", width);
   printf("height=%d\n", height);
-  printf("fps=%d\n", fps);
+  printf("fps=%f\n", fps);
   printf("rgbFlipY=%d\n", rgbFlipY);
   printf("speed=%d\n", speed);
   printf("kbps=%d\n", kbps);
   printf("vbvSize=%d\n", vbvSize);
-  printf("quantization=%d\n", quantization);
+  printf("qpMin=%d\n", qpMin);
+  printf("qpMax=%d\n", qpMax);
+  printf("quantizationParameter=%d\n", quantizationParameter);
   printf("groupOfPictures=%d\n", groupOfPictures);
   printf("desiredNaluBytes=%d\n", desiredNaluBytes);
   printf("fragmentation=%d\n", fragmentation);
@@ -143,8 +145,12 @@ uintptr_t create_encoder(val options, val write)
   create_param.gop = groupOfPictures;
   create_param.height = encoder->height;
   create_param.width = encoder->width;
+
+  // TODO: Expose these to JS API
   create_param.fine_rate_control_flag = 0;
   create_param.const_input_flag = 1;
+
+  // originally was at 100 * 10000 / 8
   create_param.vbv_size_bytes = vbvSize < 0 ? default_kbps * 1000 / 8 * 2 : vbvSize;
   create_param.temporal_denoise_flag = temporalDenoise;
   
@@ -164,7 +170,6 @@ uintptr_t create_encoder(val options, val write)
   encoder->run_param.frame_type = 0;
   encoder->run_param.encode_speed = speed;
   encoder->run_param.desired_nalu_bytes = desiredNaluBytes;
-  
 
   if (kbps)
   {
