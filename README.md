@@ -135,8 +135,11 @@ Creates a new encoder interface with options:
 - `stride` (default 4) - the number of RGB(A) channels used by the `encodeRGB()` function
 - `fps` (default 30) - output FPS of the video
 - `speed` (default 10) - where 0 means best quality and 10 means fastest speed `[0..10]`
-- `kbps` (default 0) - the bitrate in kbps relative to the frame_rate. Overwrites *quantizationParameter* if not 0
-- `quantizationParameter` (default 10) - higher means better compression, and lower means better quality `[10..51]`
+- `kbps` (default 0) - the desired bitrate in kilobits per second, if set to `0` then a constant `quantizationParameter` will be used instead
+- `quantizationParameter` (default 10) - the constant value to use when `kbps` is not set, higher means better compression, and lower means better quality `[10..51]`
+- `qpMin` (default 10) - when `kbps` is specified, this is the lower quantization boundary `[10..51]`
+- `qpMax` (default 50) - when `kbps` is specified, this is the upper quantization boundary `[10..51]`
+- `vbvSize` (default -1) - set to a negative value to use a default 2 second buffer, or specify `0` to disable Video Buffering Verifier (VBV), or set to a number to specify the size in bytes of the vbv buffer
 - `groupOfPictures` (default 20) - how often a keyframe occurs (key frame period, also known as GOP)
 - `desiredNaluBytes` (default 0) - each NAL unit will be approximately capped at this size (0 means unlimited)
 - `temporalDenoise` (default false) - use temporal noise supression

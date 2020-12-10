@@ -90,21 +90,26 @@ uintptr_t create_encoder(val options, val write)
   uint32_t speed = option_exists(options, "speed") ? options["speed"].as<uint32_t>() : 10;
   uint32_t kbps = option_exists(options, "kbps") ? options["kbps"].as<uint32_t>() : 0;
   uint32_t quantizationParameter = option_exists(options, "quantizationParameter") ? options["quantizationParameter"].as<uint32_t>() : 10;
+  uint32_t qpMin = option_exists(options, "qpMin") ? options["qpMin"].as<uint32_t>() : 10;
+  uint32_t qpMax = option_exists(options, "qpMax") ? options["qpMax"].as<uint32_t>() : 51;
   uint32_t groupOfPictures = option_exists(options, "groupOfPictures") ? options["groupOfPictures"].as<uint32_t>() : 20;
   uint32_t desiredNaluBytes = option_exists(options, "desiredNaluBytes") ? options["desiredNaluBytes"].as<uint32_t>() : 0;
+  int vbvSize = option_exists(options, "vbvSize") ? options["vbvSize"].as<int>() : -1;
   int fragmentation = option_exists(options, "fragmentation") ? options["fragmentation"].as<int>() : 0;
   int sequential = option_exists(options, "sequential") ? options["sequential"].as<int>() : 0;
   int temporalDenoise = option_exists(options, "temporalDenoise") ? options["temporalDenoise"].as<int>() : 0;
-  bool rgb_flip_y = option_exists(options, "rgbFlipY") ? options["rgbFlipY"].as<bool>() : false;
+  bool rgbFlipY = option_exists(options, "rgbFlipY") ? options["rgbFlipY"].as<bool>() : false;
+  uint32_t default_kbps = kbps ? kbps : 5000;
 
   #ifdef DEBUG
   printf("width=%d\n", width);
   printf("height=%d\n", height);
   printf("fps=%d\n", fps);
-  printf("rgbFlipY=%d\n", rgb_flip_y);
+  printf("rgbFlipY=%d\n", rgbFlipY);
   printf("speed=%d\n", speed);
   printf("kbps=%d\n", kbps);
-  printf("quantizationParameter=%d\n", quantizationParameter);
+  printf("vbvSize=%d\n", vbvSize);
+  printf("quantization=%d\n", quantization);
   printf("groupOfPictures=%d\n", groupOfPictures);
   printf("desiredNaluBytes=%d\n", desiredNaluBytes);
   printf("fragmentation=%d\n", fragmentation);
@@ -118,7 +123,7 @@ uintptr_t create_encoder(val options, val write)
   encoder->width = width;
   encoder->height = height;
   encoder->fps = fps;
-  encoder->rgb_flip_y = rgb_flip_y;
+  encoder->rgb_flip_y = rgbFlipY;
 
   // Initialize MP4 writer
   int is_hevc = 0;
@@ -140,7 +145,7 @@ uintptr_t create_encoder(val options, val write)
   create_param.width = encoder->width;
   create_param.fine_rate_control_flag = 0;
   create_param.const_input_flag = 1;
-  create_param.vbv_size_bytes = 100000 / 8;
+  create_param.vbv_size_bytes = vbvSize < 0 ? default_kbps * 1000 / 8 * 2 : vbvSize;
   create_param.temporal_denoise_flag = temporalDenoise;
   
   int sizeof_persist = 0;
@@ -160,11 +165,12 @@ uintptr_t create_encoder(val options, val write)
   encoder->run_param.encode_speed = speed;
   encoder->run_param.desired_nalu_bytes = desiredNaluBytes;
   
+
   if (kbps)
   {
     encoder->run_param.desired_frame_bytes = kbps * 1000 / 8 / encoder->fps;
-    encoder->run_param.qp_min = 10;
-    encoder->run_param.qp_max = 50;
+    encoder->run_param.qp_min = qpMin;
+    encoder->run_param.qp_max = qpMax;
   }
   else
   {
