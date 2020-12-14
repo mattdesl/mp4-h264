@@ -5,7 +5,7 @@
   </head>
 
   <body>
-    <div>Encoding 100 frames at 800x600</div>
+    <div>Encoding N frames at 1920x1080</div>
     <canvas
       width="800"
       height="600"
@@ -94,7 +94,7 @@
           // codec: 'avc1.64000a',
           width: width,
           height: height,
-          bitrate: 42_000_000, // 8 Mbps
+          bitrate: 10_000_000, // in Mbps
           framerate: fps,
         };
 
@@ -287,11 +287,13 @@
         const fps = 30;
         const duration = 5;
         let frame = 0;
+        // const totalFrames = 100;
         let totalFrames = Math.round(fps * duration);
 
         const width = 1920;
         const height = 1080;
 
+        console.time('encode');
         const encoder = await createEncoder(width, height, fps);
 
         requestAnimationFrame(loop);
@@ -300,6 +302,8 @@
           if (frame >= totalFrames) {
             await encoder.flush()
             const buf = await encoder.end();
+            console.timeEnd('encode');
+
             show(buf, width, height);
             return;
           }
@@ -310,7 +314,7 @@
           const timestamp = 1 / fps * frame;
           const keyframe = frame % 20 === 0;
           encoder.addFrame(bitmap, keyframe, timestamp);
-          if (frame !== 0) {
+          if ((frame + 1) % 10 === 0) {
             await encoder.flush()
           }
 
