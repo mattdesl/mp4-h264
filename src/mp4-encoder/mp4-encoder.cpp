@@ -10,7 +10,10 @@
 
 #ifdef EMSCRIPTEN_SIMD_ENABLED
   #define MINIH264_ONLY_SIMD 1
-  #define H264E_ENABLE_NEON 0
+  #define H264E_ENABLE_NEON 1
+#endif
+#if H264E_ENABLE_NEON
+  #include <arm_neon.h>
 #endif
 
 #define MINIH264_IMPLEMENTATION
@@ -136,7 +139,7 @@ uintptr_t create_encoder(val options, val write)
   // Initialize H264 writer
   H264E_create_param_t create_param;
   memset(&create_param, 0, sizeof(create_param));
-  create_param.enableNEON = 0;
+  create_param.enableNEON = 1;
   #if H264E_SVC_API
   create_param.num_layers = 1;
   create_param.inter_layer_pred_flag = 1;
