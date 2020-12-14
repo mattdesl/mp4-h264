@@ -28,6 +28,7 @@ typedef struct Encoder {
   uint32_t height;
   float fps;
   bool rgb_flip_y;
+  bool h264;
   
   MP4E_mux_t *mux = nullptr;
   mp4_h26x_writer_t mp4writer;
@@ -67,6 +68,17 @@ static void nalu_callback (const uint8_t *nalu_data, int sizeof_nalu_data, void 
   mp4_h26x_write_nal(&encoder->mp4writer, data, nal_size, TIMESCALE/(encoder->fps));
 }
 
+void write_nal (uintptr_t encoder_ptr, uintptr_t buffer_ptr, size_t sizeof_nalu_data)
+{
+  Encoder* encoder = reinterpret_cast<Encoder*>(encoder_ptr);
+  uint8_t* nalu_data = reinterpret_cast<uint8_t*>(buffer_ptr);
+
+  // uint8_t *data = const_cast<uint8_t *>(nalu_data - STARTCODE_4BYTES);
+  // const int nal_size = sizeof_nalu_data + STARTCODE_4BYTES;
+
+  mp4_h26x_write_nal(&encoder->mp4writer, nalu_data, sizeof_nalu_data, TIMESCALE/(encoder->fps));
+}
+
 uintptr_t create_buffer (uint32_t length)
 {
   return (uintptr_t)(uint8_t *)malloc(length * sizeof(uint8_t));
@@ -99,6 +111,7 @@ uintptr_t create_encoder(val options, val write)
   int sequential = option_exists(options, "sequential") ? options["sequential"].as<int>() : 0;
   int temporalDenoise = option_exists(options, "temporalDenoise") ? options["temporalDenoise"].as<int>() : 0;
   bool rgbFlipY = option_exists(options, "rgbFlipY") ? options["rgbFlipY"].as<bool>() : false;
+  bool h264 = option_exists(options, "h264") ? options["h264"].as<bool>() : true;
   uint32_t default_kbps = kbps ? kbps : 5000;
 
   #ifdef DEBUG
@@ -117,6 +130,7 @@ uintptr_t create_encoder(val options, val write)
   printf("fragmentation=%d\n", fragmentation);
   printf("sequential=%d\n", sequential);
   printf("temporalDenoise=%d\n", temporalDenoise);
+  printf("h264=%d\n", h264);
   #endif
 
   // Set Options
@@ -126,6 +140,7 @@ uintptr_t create_encoder(val options, val write)
   encoder->height = height;
   encoder->fps = fps;
   encoder->rgb_flip_y = rgbFlipY;
+  encoder->h264 = h264;
 
   // Initialize MP4 writer
   int is_hevc = 0;
@@ -133,62 +148,64 @@ uintptr_t create_encoder(val options, val write)
   // TODO: handle MP4E_STATUS_OK status
   mp4_h26x_write_init(&encoder->mp4writer, encoder->mux, encoder->width, encoder->height, is_hevc);
 
-  // Initialize H264 writer
-  H264E_create_param_t create_param;
-  memset(&create_param, 0, sizeof(create_param));
-  create_param.enableNEON = 0;
-  #if H264E_SVC_API
-  create_param.num_layers = 1;
-  create_param.inter_layer_pred_flag = 1;
-  create_param.inter_layer_pred_flag = 0;
-  #endif
-  create_param.gop = groupOfPictures;
-  create_param.height = encoder->height;
-  create_param.width = encoder->width;
+  if (h264) {
+    // Initialize H264 writer
+    H264E_create_param_t create_param;
+    memset(&create_param, 0, sizeof(create_param));
+    create_param.enableNEON = 0;
+    #if H264E_SVC_API
+    create_param.num_layers = 1;
+    create_param.inter_layer_pred_flag = 1;
+    create_param.inter_layer_pred_flag = 0;
+    #endif
+    create_param.gop = groupOfPictures;
+    create_param.height = encoder->height;
+    create_param.width = encoder->width;
 
-  // TODO: Expose these to JS API
-  create_param.fine_rate_control_flag = 0;
-  create_param.const_input_flag = 1;
+    // TODO: Expose these to JS API
+    create_param.fine_rate_control_flag = 0;
+    create_param.const_input_flag = 1;
 
-  // originally was at 100 * 10000 / 8
-  create_param.vbv_size_bytes = vbvSize < 0 ? default_kbps * 1000 / 8 * 2 : vbvSize;
-  create_param.temporal_denoise_flag = temporalDenoise;
-  
-  int sizeof_persist = 0;
-  int sizeof_scratch = 0;
-  int sizeof_result = H264E_sizeof(&create_param, &sizeof_persist, &sizeof_scratch);
-  // HME_CHECK(sizeof_result != H264E_STATUS_SIZE_NOT_MULTIPLE_2, "Size must be a multiple of 2");
-  // HME_CHECK_INTERNAL(sizeof_result == H264E_STATUS_SUCCESS);
+    // originally was at 100 * 10000 / 8
+    create_param.vbv_size_bytes = vbvSize < 0 ? default_kbps * 1000 / 8 * 2 : vbvSize;
+    create_param.temporal_denoise_flag = temporalDenoise;
+    
+    int sizeof_persist = 0;
+    int sizeof_scratch = 0;
+    int sizeof_result = H264E_sizeof(&create_param, &sizeof_persist, &sizeof_scratch);
+    // HME_CHECK(sizeof_result != H264E_STATUS_SIZE_NOT_MULTIPLE_2, "Size must be a multiple of 2");
+    // HME_CHECK_INTERNAL(sizeof_result == H264E_STATUS_SUCCESS);
 
-  encoder->enc = (H264E_persist_t *)ALIGNED_ALLOC(64, sizeof_persist);
-  encoder->scratch = (H264E_scratch_t *)ALIGNED_ALLOC(64, sizeof_scratch);
+    encoder->enc = (H264E_persist_t *)ALIGNED_ALLOC(64, sizeof_persist);
+    encoder->scratch = (H264E_scratch_t *)ALIGNED_ALLOC(64, sizeof_scratch);
 
-  //TODO: H264E_STATUS_SUCCESS status
-  H264E_init(encoder->enc, &create_param);
+    //TODO: H264E_STATUS_SUCCESS status
+    H264E_init(encoder->enc, &create_param);
 
-  memset(&encoder->run_param, 0, sizeof(encoder->run_param));
-  encoder->run_param.frame_type = 0;
-  encoder->run_param.encode_speed = speed;
-  encoder->run_param.desired_nalu_bytes = desiredNaluBytes;
+    memset(&encoder->run_param, 0, sizeof(encoder->run_param));
+    encoder->run_param.frame_type = 0;
+    encoder->run_param.encode_speed = speed;
+    encoder->run_param.desired_nalu_bytes = desiredNaluBytes;
 
-  if (kbps)
-  {
-    encoder->run_param.desired_frame_bytes = kbps * 1000 / 8 / encoder->fps;
-    encoder->run_param.qp_min = qpMin;
-    encoder->run_param.qp_max = qpMax;
+    if (kbps)
+    {
+      encoder->run_param.desired_frame_bytes = kbps * 1000 / 8 / encoder->fps;
+      encoder->run_param.qp_min = qpMin;
+      encoder->run_param.qp_max = qpMax;
+    }
+    else
+    {
+      encoder->run_param.qp_min = encoder->run_param.qp_max = quantizationParameter;
+    }
+
+    encoder->run_param.nalu_callback_token = encoder;
+    encoder->run_param.nalu_callback = &nalu_callback;
+
+    // memset(&encoder->yuv_planes, 0, sizeof(encoder->yuv_planes));
+    encoder->yuv_planes.stride[0] = width;
+    encoder->yuv_planes.stride[1] = width / 2;
+    encoder->yuv_planes.stride[2] = width / 2;
   }
-  else
-  {
-    encoder->run_param.qp_min = encoder->run_param.qp_max = quantizationParameter;
-  }
-
-  encoder->run_param.nalu_callback_token = encoder;
-  encoder->run_param.nalu_callback = &nalu_callback;
-
-  // memset(&encoder->yuv_planes, 0, sizeof(encoder->yuv_planes));
-  encoder->yuv_planes.stride[0] = width;
-  encoder->yuv_planes.stride[1] = width / 2;
-  encoder->yuv_planes.stride[2] = width / 2;
   return (uintptr_t)encoder;
 }
 
@@ -267,8 +284,10 @@ void finalize_encoder (uintptr_t encoder_ptr)
   Encoder* encoder = reinterpret_cast<Encoder*>(encoder_ptr);
   MP4E_close(encoder->mux);
   mp4_h26x_write_close(&encoder->mp4writer);
-  free(encoder->enc);
-  free(encoder->scratch);
+  if (encoder->h264) {
+    free(encoder->enc);
+    free(encoder->scratch);
+  }
   free(encoder);
   encoder = nullptr;
 }
@@ -280,4 +299,5 @@ EMSCRIPTEN_BINDINGS(H264MP4EncoderBinding) {
   function("encode_yuv", &encode_yuv);
   function("encode_rgb", &encode_rgb);
   function("finalize_encoder", &finalize_encoder);
+  function("write_nal", &write_nal);
 }
