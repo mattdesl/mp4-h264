@@ -7,8 +7,8 @@
   <body>
     <div>Encoding 100 frames at 800x600</div>
     <canvas
-      width="800"
-      height="600"
+      width="1920"
+      height="1080"
       style="width: 50vw; height: auto; border: 1px solid black"
     ></canvas
     ><br />
@@ -53,19 +53,35 @@
           // }
         });
 
+        console.time('encoder');
+
+        const duration = 10; // in seconds
+        const sizeInMBs = 20; // desired output size
+        const sizeInKilobits = sizeInMBs * 8000; // conversion
+
+        // this is the value passed into the encoder
+        const kbps = sizeInKilobits / duration;
+        const mbps = sizeInMBs / duration;
+        console.log("KBPS", kbps);
+
+        const fps = 30;
         // Now we can create an encoder interface
         const encoder = Encoder.create({
+          fps,
+          kbps: kbps,
           width: canvas.width,
           height: canvas.height,
         });
 
         let frame = 0;
-        let totalFrames = 100;
+        let totalFrames = Math.round(duration * fps);
         requestAnimationFrame(loop);
 
         function loop() {
           if (frame >= totalFrames) {
             const buf = encoder.end();
+            console.timeEnd('encoder');
+
             download(buf);
             return;
           }

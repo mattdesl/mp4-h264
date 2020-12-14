@@ -88,13 +88,13 @@
         }, mux_write);
 
         const config = {
-          codec: 'avc1.4d401e',
+          // codec: 'avc1.4d401e',
           // codec: 'avc1.4d002a',
           // codec: 'avc1.4d0028',
-          // codec: 'avc1.64000a',
+          codec: 'avc1.640034',
           width: width,
           height: height,
-          bitrate: 10_000_000, // in Mbps
+          bitrate: 8_000_000, // N Mbps
           framerate: fps,
         };
 
@@ -106,17 +106,11 @@
             await encoder.flush();
             encoder.close();
 
-            // get a single buffer with all h264 data
-            // const h264data = concatBuffers(encoderOutputs);
-
-            // write 264 to mp4
-            // push_nalu_data(h264data);
-
             Encoder.finalize_encoder(mux);
             return concatBuffers(mp4Outputs);
           },
           addFrame (bitmap, keyFrame, time = 0) {
-            time *= 1000000;
+            time *= 1000000; // in microseconds
             let frame = new VideoFrame(bitmap, { timestamp: time });
             const ret = encoder.encode(frame, { keyFrame });
             frame.destroy();
@@ -138,45 +132,6 @@
             offset += arr.byteLength;
           }
           return result;
-        }
-
-        function get_nal_size (buf, ptr, size) {
-          let pos = 3;
-          while ((size - pos) > 3)
-          {
-            if (buf[ptr + pos] == 0 && buf[ptr + pos + 1] == 0 && buf[ptr + pos + 2] == 1) {
-              return pos;
-            }
-            if (buf[ptr + pos] == 0 && buf[ptr + pos + 1] == 0 && buf[ptr + pos + 2] == 0 && buf[ptr + pos + 3] == 1) {
-              return pos;
-            }
-            pos++;
-          }
-          return size;
-        }
-
-        function push_nalu_data (buf_h264) {
-          let ptr = Encoder._malloc(buf_h264.length);
-          const pointer = ptr;
-          // place data into emscripten memory at pointer
-          Encoder.HEAPU8.set(buf_h264, ptr);
-
-          let h264_size = buf_h264.length;
-          while (h264_size > 0) {
-            let nal_size = get_nal_size(Encoder.HEAPU8, ptr, h264_size);
-            if (nal_size < 4) {
-              ptr += 1;
-              h264_size -= 1;
-              continue;
-            }
-            const pp = ptr;
-            const ps = nal_size;
-            Encoder.write_nal(mux, pp, ps);
-            ptr += nal_size;
-            h264_size -= nal_size;
-          }
-
-          Encoder._free(pointer);
         }
 
         function mux_write (data_ptr, size) {
@@ -248,9 +203,7 @@
         function write_nal (uint8) {
           const p = Encoder._malloc(uint8.byteLength);
           Encoder.HEAPU8.set(uint8, p);
-
           Encoder.write_nal(mux, p, uint8.length);
-
           Encoder._free(p);
         }
         
@@ -261,8 +214,6 @@
           }
 
           const nal = [];
-
-
           if (avccConfig) {
             avccConfig.sps_list.forEach(sps => {
               nal.push(START_CODE);
@@ -285,10 +236,10 @@
 
       (async () => {
         const fps = 30;
-        const duration = 5;
+        // const duration = 10;
         let frame = 0;
-        // const totalFrames = 100;
-        let totalFrames = Math.round(fps * duration);
+        // let totalFrames = Math.round(fps * duration);
+        let totalFrames = 300;
 
         const width = 1920;
         const height = 1080;
