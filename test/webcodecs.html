@@ -6,18 +6,27 @@
 
   <body>
     <div>Encoding N frames at 1920x1080</div>
+    <br />
     <canvas
-      width="800"
-      height="600"
-      style="width: 20vw; height: auto; border: 1px solid black"
-    ></canvas
-    ><br />
+    width="1920"
+    height="1080"
+    style="width: 20vw; height: auto; border: 1px solid black"
+    ></canvas>
     <script type="module">
       import loadEncoder from "/build/mp4-encoder.js";
       const START_CODE = new Uint8Array([ 0, 0, 0, 1 ]);
 
-      const canvas = document.getElementsByTagName("canvas")[0];
-      const ctx = canvas.getContext("2d");
+      const width = 1920;
+      const height = 1080;
+
+      // const canvas = document.getElementsByTagName("canvas")[0];
+      // canvas.width = width;
+      // canvas.height = height;
+      const canvas = new OffscreenCanvas(width, height)
+      const ctx = canvas.getContext("2d", {
+        // colorSpace: "display-p3",
+        // storageFormat: "float16"
+      });
       const drawFrame = (interpolant) => {
         ctx.fillStyle = "#0000FF";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -83,6 +92,7 @@
         const mux = Encoder.create_encoder({
           width,
           height,
+          fps,
           sequential: true,
           h264: false
         }, mux_write);
@@ -91,11 +101,15 @@
           // codec: 'avc1.4d401e',
           // codec: 'avc1.4d002a',
           // codec: 'avc1.4d0028',
-          codec: 'avc1.640034',
+          codec: 'avc1.420034',
+
+          // progressive
+          // codec: 'avc1.6e0034',
           width: width,
           height: height,
-          bitrate: 8_000_000, // N Mbps
-          framerate: fps,
+          acceleration: 'allow',
+          bitrate: 2_000_000, // N Mbps
+          // framerate: fps,
         };
 
         const encoder = new VideoEncoder(init);
@@ -235,14 +249,11 @@
       }
 
       (async () => {
-        const fps = 30;
-        // const duration = 10;
+        const fps = 60;
+        const duration = 1
         let frame = 0;
-        // let totalFrames = Math.round(fps * duration);
-        let totalFrames = 300;
-
-        const width = 1920;
-        const height = 1080;
+        let totalFrames = Math.round(fps * duration);
+        // let totalFrames = 300;
 
         console.time('encode');
         const encoder = await createEncoder(width, height, fps);
@@ -261,6 +272,8 @@
 
 
           drawFrame(frame / (totalFrames - 1));
+          console.log(frame, totalFrames)
+          // const bitmap = canvas.transferToImageBitmap();
           const bitmap = await createImageBitmap(canvas);
           const timestamp = 1 / fps * frame;
           const keyframe = frame % 20 === 0;

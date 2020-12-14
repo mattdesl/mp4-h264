@@ -5,7 +5,7 @@
   </head>
 
   <body>
-    <div>Encoding 100 frames at 800x600</div>
+    <div>Encoding 100 frames at 1920x1080</div>
     <canvas
       width="1920"
       height="1080"
@@ -14,6 +14,8 @@
     ><br />
     <script type="module">
       import loadEncoder from "/build/mp4-encoder.js";
+      const width = 1920;
+      const height = 1080;
 
       const canvas = document.getElementsByTagName("canvas")[0];
       const ctx = canvas.getContext("2d");
@@ -64,7 +66,7 @@
         const mbps = sizeInMBs / duration;
         console.log("KBPS", kbps);
 
-        const fps = 30;
+        const fps = 60;
         // Now we can create an encoder interface
         const encoder = Encoder.create({
           fps,
