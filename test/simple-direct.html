@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+  </head>
+
+  <body>
+    <div class='message'></div>
+    <canvas
+      id='canvas'
+      style="width: 50vw; height: auto; border: 1px solid black"
+    ></canvas
+    ><br />
+    <script type="module">
+      import { simd as SIMD } from "https://unpkg.com/wasm-feature-detect?module";
+      import loadEncoder from "/build/mp4-encoder.js";
+
+      const width = 1920;
+      const height = 1080;
+      const fps = 30;
+      const totalFrames = 100;
+
+      document.querySelector('.message').textContent = `
+        Encoding ${totalFrames} frames at ${width} x ${height}
+      `.trim();
+      const canvas = document.querySelector("#canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      const drawFrame = (interpolant) => {
+        ctx.fillStyle = "#0000FF";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = "#FF0000";
+        ctx.fillRect(
+          0,
+          0,
+          canvas.width * interpolant,
+          canvas.height * interpolant
+        );
+      };
+
+      const download = (buf, filename) => {
+        const url = URL.createObjectURL(new Blob([buf], { type: "video/mp4" }));
+        const anchor = document.createElement("a");
+        anchor.href = url;
+        anchor.download = filename || "download";
+        anchor.click();
+      };
+
+      (async () => {
+        // You can enable this if you have WASM SIMD support,
+        // you can detect it with "wasm-feature-detect" module
+        const simd = await SIMD();
+
+        // We first need to load the encoder WASM
+        const Encoder = await loadEncoder({
+          // Whether to search for '.simd.wasm' file
+          simd,
+
+          // Note: You can override the WASM file directory locator like so
+          // getWasmPath (file, scriptDir, isSimd) {
+          //   return '/my-wasm-dir/' + file;
+          // }
+        });
+
+        console.time('encoding');
+
+        // Now we can create an encoder interface
+        const encoder = Encoder.create_encoder({
+          width: canvas.width,
+          height: canvas.height,
+          fps
+        }, write);
+
+        let frame = 0;
+
+        const stride = 4; // stride of our RGBA input
+        const rgb_ptr = Encoder.create_buffer(width * height * stride);
+        const yuv_ptr = Encoder.create_buffer((width * height * 3) / 2);
+
+        requestAnimationFrame(loop);
+
+        function write (pointer, size, offset) {
+          console.log('writing', size)
+          return 0;
+        }
+
+        function loop() {
+          if (frame >= totalFrames) {
+            // const buf = encoder.end();
+            console.timeEnd('encoding')
+            download(buf);
+            return;
+          }
+
+          requestAnimationFrame(loop);
+
+          drawFrame(frame / (totalFrames - 1));
+          const rgba = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+
+          Encoder.HEAPU8.set(rgba, rgb_ptr);
+          Encoder.encode_rgb(encoder, rgb_ptr, stride, yuv_ptr);
+          frame++;
+        }
+      })();
+    </script>
+    <script></script>
+  </body>
+</html>

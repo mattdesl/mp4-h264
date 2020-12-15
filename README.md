@@ -14,7 +14,7 @@ Features:
 - Memory efficient: can be used for very large video files
 - Relatively small footprint (~130 - 150KB before gzip)
 - Very fast encoding with optional SIMD support
-- Can be used solely as a MP4 muxer, such as alongside WebCodecs H264 encoding
+- Can be used solely as a MP4 muxer, such as alongside WebCodecs VideoEncoder
 
 Possible Future Features:
 
@@ -98,6 +98,49 @@ const loadEncoder = require("mp4-h264");
 (async () => {
   const Encoder = await loadEncoder();
   // ... same API as web ...
+})();
+```
+
+## Muxing Only
+
+Let's say you already have H264 data and just want to use this to mux it into an MP4 container, then you'll want to use the lower-level Direct API like so:
+
+```js
+const loadEncoder = require('mp4-h264');
+const fs = require('fs');
+
+(async () => {
+  const Encoder = await loadEncoder();
+  const stream = fs.createWriteStream('file.mp4');
+
+  const mux = Encoder.create_muxer({
+    width,
+    height,
+    // sequential outputs for simpler 'file write'
+    sequential: true,
+  }, write);
+
+  for (let chunk of readChunksOfH264FromSomewhere()) {
+    // malloc() / free() a pointer
+    const p = Encoder.create_buffer(chunk.byteLength);
+    // set data in memory
+    Encoder.HEAPU8.set(chunk, p);
+    // write NAL units with AnnexB format
+    // [startcode] | [NAL] | [startcode] | [NAL] ...
+    Encoder.muxer_write(mux, p, chunk.byteLength);
+    Encoder.free_buffer(p);
+  }
+
+  // this may trigger more writes
+  Encoder.finalize_muxer(mux);
+  // now we can close the stream
+  
+
+  function write (pointer, size, offset) {
+    const buf = Encoder.HEAPU8.slice(pointer, pointer + size);
+    stream.write(buf);
+    return 0;
+  }
 })();
 ```
 
@@ -210,7 +253,10 @@ Instead of returning an interface with functions, the direct API returns pointer
 - `Encoder.HEAPU8` - access the current Uint8Array storage of the encoder
 - `Encoder.encode_rgb(encoder_ptr, rgba_ptr, stride, yuv_ptr)` - converts RGB into YUV and then encodes it
 - `Encoder.encode_yuv(encoder_ptr, yuv_ptr)` - encodes YUV directly
-- `Encoder.finalize(encoder_ptr)` - finishes encoding the MP4 file and frees any memory allocated internally by the encoder structure
+- `Encoder.finalize_encoder(encoder_ptr)` - finishes encoding the MP4 file and frees any memory allocated internally by the encoder structure
+- `mux = Encoder.create_muxer(settings, write)` - allocates and creates an internal struct holding the muxer (MP4 only), with settings `{ width, height, [sequential=false, fragmentation=false] }` and a write function
+- `Encoder.muxer_write_nal(mux_ptr, nal_data, nal_size)` - writes NAL units to the currently open muxer
+- `Encoder.finalize_muxer(muxer_ptr)` - finishes muxing the MP4 file and frees any memory allocated internally
 
 ```js
 const outputs = [];
@@ -237,7 +283,7 @@ const yuv_ptr = Encoder.create_buffer((width * height * 3) / 2);
 
 for (.. each frame ..) {
   const pixels = /* Uint8Array */;
-  Encoder.HEAPU8.set(rgb_ptr, pixels);
+  Encoder.HEAPU8.set(pixels, rgb_ptr);
   Encoder.encode_rgb(encoder_ptr, rgb_ptr, stride, yuv_ptr);
 }
 

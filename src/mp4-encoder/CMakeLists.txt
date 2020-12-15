@@ -25,13 +25,13 @@ if(EMSCRIPTEN)
         -s TEXTDECODER=0\
         -s MODULARIZE=1\
         -s FILESYSTEM=0\
-        -s ASSERTIONS=0\
+        -s ASSERTIONS=1\
         -Wno-invalid-source-encoding\
         -Wno-tautological-pointer-compare\
         --pre-js ../api.js\
         -O3\
         --closure 1\
-        -g0\
+        -g\
         --bind\
     ")
 
