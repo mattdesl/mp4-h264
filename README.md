@@ -2,7 +2,7 @@
 
 ###### (This module is still in development, and some things may change)
 
-Standalone MP4 (H264) encoder compiled with Emscripten into WASM.
+Standalone H264 encoder and MP4 muxer compiled with Emscripten into WASM.
 
 > ✨ [Live Demo](https://codepen.io/mattdesl/full/MWjeJMg)
 
@@ -14,10 +14,11 @@ Features:
 - Memory efficient: can be used for very large video files
 - Relatively small footprint (~130 - 150KB before gzip)
 - Very fast encoding with optional SIMD support
+- Can be used solely as a MP4 muxer, such as alongside WebCodecs H264 encoding
 
 Possible Future Features:
 
-- Audio encoding
+- Audio muxing
 - MP4 demuxing
 - ASM.js support for legacy browsers
 

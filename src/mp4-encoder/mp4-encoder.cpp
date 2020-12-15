@@ -1,8 +1,6 @@
 #include <emscripten/bind.h>
 #include <emscripten/val.h>
 
-
-
 #define ALIGNED_ALLOC(n, size) aligned_alloc(n, (size + n - 1) / n * n)
 #define TIMESCALE 90000
 
@@ -67,15 +65,15 @@ static void nalu_callback (const uint8_t *nalu_data, int sizeof_nalu_data, void 
   mp4_h26x_write_nal(&encoder->mp4writer, data, nal_size, TIMESCALE/(encoder->fps));
 }
 
-uintptr_t create_buffer (uint32_t length)
-{
-  return (uintptr_t)(uint8_t *)malloc(length * sizeof(uint8_t));
-}
+// uintptr_t create_buffer (uint32_t length)
+// {
+//   return (uintptr_t)(uint8_t *)malloc(length * sizeof(uint8_t));
+// }
 
-void free_buffer (uintptr_t i)
-{
-  free(reinterpret_cast<uint8_t*>(i));
-}
+// void free_buffer (uintptr_t i)
+// {
+//   free(reinterpret_cast<uint8_t*>(i));
+// }
 
 bool option_exists (val options, std::string key)
 {
@@ -275,8 +273,8 @@ void finalize_encoder (uintptr_t encoder_ptr)
 
 EMSCRIPTEN_BINDINGS(H264MP4EncoderBinding) {
   function("create_encoder", &create_encoder);
-  function("create_buffer", &create_buffer);
-  function("free_buffer", &free_buffer);
+  // function("create_buffer", &create_buffer);
+  // function("free_buffer", &free_buffer);
   function("encode_yuv", &encode_yuv);
   function("encode_rgb", &encode_rgb);
   function("finalize_encoder", &finalize_encoder);

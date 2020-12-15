@@ -39,6 +39,14 @@ function SimpleMemoryFile() {
   }
 }
 
+Module['create_buffer'] = function create_buffer (size) {
+  return Module['_malloc'](size);
+};
+
+Module['free_buffer'] = function create_buffer (pointer) {
+  return Module['_free'](pointer);
+};
+
 // Expose simpler end-user API for encoding
 Module['create'] = function createEncoder(settings = {}) {
   const width = settings['width'];

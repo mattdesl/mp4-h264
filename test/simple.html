@@ -5,17 +5,27 @@
   </head>
 
   <body>
-    <div>Encoding 100 frames at 800x600</div>
+    <div class='message'></div>
     <canvas
-      width="800"
-      height="600"
+      id='canvas'
       style="width: 50vw; height: auto; border: 1px solid black"
     ></canvas
     ><br />
     <script type="module">
+      import { simd as SIMD } from "https://unpkg.com/wasm-feature-detect?module";
       import loadEncoder from "/build/mp4-encoder.js";
 
-      const canvas = document.getElementsByTagName("canvas")[0];
+      const width = 1920;
+      const height = 1080;
+      const fps = 30;
+      const totalFrames = 100;
+
+      document.querySelector('.message').textContent = `
+        Encoding ${totalFrames} frames at ${width} x ${height}
+      `.trim();
+      const canvas = document.querySelector("#canvas");
+      canvas.width = width;
+      canvas.height = height;
       const ctx = canvas.getContext("2d");
       const drawFrame = (interpolant) => {
         ctx.fillStyle = "#0000FF";
@@ -40,7 +50,7 @@
       (async () => {
         // You can enable this if you have WASM SIMD support,
         // you can detect it with "wasm-feature-detect" module
-        const simd = false;
+        const simd = await SIMD();
 
         // We first need to load the encoder WASM
         const Encoder = await loadEncoder({
@@ -53,19 +63,23 @@
           // }
         });
 
+        console.time('encoding');
+
         // Now we can create an encoder interface
         const encoder = Encoder.create({
           width: canvas.width,
           height: canvas.height,
+          fps
         });
 
         let frame = 0;
-        let totalFrames = 100;
+
         requestAnimationFrame(loop);
 
         function loop() {
           if (frame >= totalFrames) {
             const buf = encoder.end();
+            console.timeEnd('encoding')
             download(buf);
             return;
           }
