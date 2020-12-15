@@ -21,12 +21,11 @@
 
 using namespace emscripten;
 
-
 typedef struct MP4Muxer {
   MP4E_mux_t *mux = nullptr;
   mp4_h26x_writer_t writer;
   float fps;
-  val write;
+  val *write;
 } MP4Muxer;
 
 typedef struct Encoder {
@@ -43,12 +42,12 @@ typedef struct Encoder {
   H264E_scratch_t *scratch = nullptr;
 } Encoder;
 
-static int write_callback (int64_t offset, const void *buffer, size_t size, void *token)
+int write_callback (int64_t offset, const void *buffer, size_t size, void *token)
 {
   MP4Muxer *muxer = (MP4Muxer *)token;
-  // val *write_ptr = (val *)token;
   // val write = *write_ptr;
-  // printf("writing %s\n", write.typeOf().as<std::string>().c_str());
+  // printf("writing %s\n", (*(muxer->write)).typeOf().as<std::string>().c_str());
+  // printf("creating %s\n", (write).typeOf().as<std::string>().c_str());
   return 0;
   // uint8_t *data = (uint8_t*)(buffer);
   // return write(val((uintptr_t)data), val((int)size), val((int)offset)).as<int>();
@@ -86,8 +85,41 @@ bool option_exists (val options, std::string key)
   return options[key].typeOf().as<std::string>() != "undefined";
 }
 
-uintptr_t create_muxer(val options, const val write)
+class myval {
+ public:
+    myval()
+    {
+      printf("myval incref constructor\n");
+    }
+    myval(const myval& v)
+    {
+      printf("myval incref copy ctr\n");
+    }
+    ~myval()
+    {
+      printf("myval decref deconstructor\n");
+    }
+};
+
+
+typedef struct MyValHolder {
+  void* v;
+} MyValHolder;
+
+
+void test_fn (MyValHolder *holder)
 {
+  printf("test_fn\n");
+}
+
+
+
+uintptr_t create_muxer(val options, val write)
+{
+  // myval newval;
+  // MyValHolder *holder = (MyValHolder *)malloc(sizeof(MyValHolder));
+
+  
   uint32_t width = options["width"].as<uint32_t>();
   uint32_t height = options["height"].as<uint32_t>();
   float fps = option_exists(options, "fps") ? options["fps"].as<float>() : 30.0f;
@@ -98,28 +130,30 @@ uintptr_t create_muxer(val options, const val write)
   // not sure why I have to do this :(
   // I guess the 'write' is on stack and trying to keep
   // reference to it is volatile since it might get lost?
-  // val *write_fn = (val *)malloc(sizeof(val));
-  // memcpy(write_fn, &write, sizeof(val));
-
-  // I'd rather just do this:
+  
 
   MP4Muxer *muxer = (MP4Muxer *)malloc(sizeof(MP4Muxer));
 
-  // val *write_ptr = &write;
-  // val *write_ptr = (val*)&write;
+  val write_fn = val(write);
+  // val *write_fn = (val *)malloc(sizeof(val));
+  // memcpy(write_fn, &write, sizeof(val));
 
-  // muxer->write = *write_ptr;
+  // void* raw_write_fn = malloc(sizeof(val));
+  // void* write_ptr = new(raw_write_fn) val();
+  // val write_copy = val(write);
+  muxer->write = write_fn;
   muxer->fps = fps;
   // muxer->write_fn = write_fn;
-  // printf("creating %s\n", (*write_fn).typeOf().as<std::string>().c_str());
-  muxer->mux = MP4E_open(sequential, fragmentation, muxer, &write_callback);
+  // printf("creating %s\n", (write).typeOf().as<std::string>().c_str());
+  
+  muxer->mux = MP4E_open(sequential, fragmentation, muxer->write, &write_callback);
   // TODO: handle MP4E_STATUS_OK status
   mp4_h26x_write_init(&muxer->writer, muxer->mux, width, height, hevc);
 
   return (uintptr_t)muxer;
 }
 
-uintptr_t create_encoder(val options, const val write)
+uintptr_t create_encoder(val options, val write)
 {
   uint32_t width = options["width"].as<uint32_t>();
   uint32_t height = options["height"].as<uint32_t>();

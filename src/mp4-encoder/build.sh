@@ -15,15 +15,15 @@ cd embuild
 
 rm -rf *.js
 
-cmake -DUSE_SIMD=ON -DWEB=ON -DCMAKE_TOOLCHAIN_FILE=$EMSCRIPTEN/cmake/Modules/Platform/Emscripten.cmake ..
-cmake --build .
+# cmake -DUSE_SIMD=ON -DWEB=ON -DCMAKE_TOOLCHAIN_FILE=$EMSCRIPTEN/cmake/Modules/Platform/Emscripten.cmake ..
+# cmake --build .
 
 cmake -DUSE_SIMD=OFF -DWEB=ON -DCMAKE_TOOLCHAIN_FILE=$EMSCRIPTEN/cmake/Modules/Platform/Emscripten.cmake ..
 cmake --build .
 
 cp mp4-encoder.js ../../../build/mp4-encoder.js
 cp mp4-encoder.wasm ../../../build/mp4-encoder.wasm
-cp mp4-encoder.simd.wasm ../../../build/mp4-encoder.simd.wasm
+# cp mp4-encoder.simd.wasm ../../../build/mp4-encoder.simd.wasm
 
 # cmake -DUSE_SIMD=OFF -DWEB=OFF -DCMAKE_TOOLCHAIN_FILE=$EMSCRIPTEN/cmake/Modules/Platform/Emscripten.cmake ..
 # cmake --build .

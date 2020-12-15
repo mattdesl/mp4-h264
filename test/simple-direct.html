@@ -55,7 +55,7 @@
         // We first need to load the encoder WASM
         const Encoder = await loadEncoder({
           // Whether to search for '.simd.wasm' file
-          simd,
+          simd: false,
 
           // Note: You can override the WASM file directory locator like so
           // getWasmPath (file, scriptDir, isSimd) {
@@ -66,19 +66,24 @@
         console.time('encoding');
 
         // Now we can create an encoder interface
-        const encoder = Encoder.create_encoder({
-          width: canvas.width,
-          height: canvas.height,
+        // const encoder = Encoder.create_encoder({
+        //   width: canvas.width,
+        //   height: canvas.height,
+        //   fps
+        // }, write);
+        console.log('encoding')
+        const muxer = Encoder.create_muxer({
+          width: canvas.width,height:canvas.height,
           fps
         }, write);
 
         let frame = 0;
 
         const stride = 4; // stride of our RGBA input
-        const rgb_ptr = Encoder.create_buffer(width * height * stride);
-        const yuv_ptr = Encoder.create_buffer((width * height * 3) / 2);
+        // const rgb_ptr = Encoder.create_buffer(width * height * stride);
+        // const yuv_ptr = Encoder.create_buffer((width * height * 3) / 2);
 
-        requestAnimationFrame(loop);
+        // requestAnimationFrame(loop);
 
         function write (pointer, size, offset) {
           console.log('writing', size)
