@@ -16,17 +16,22 @@
 
 #include <string>
 #include <stdint.h>
-#include <functional>
 #include "minih264e.h"
 #include "minimp4.h"
 
 using namespace emscripten;
 
+// typedef struct MuxOptions {
+//   uint32_t width;
+//   uint32_t height;
+//   float fps;
+// } MuxOptions;
+
 typedef struct MP4Muxer {
   MP4E_mux_t *mux = nullptr;
   mp4_h26x_writer_t writer;
   float fps;
-  std::function<int(const void *buffer, size_t size, int64_t offset)> callback;
+  val *write = nullptr;
 } MP4Muxer;
 
 typedef struct Encoder {
@@ -37,22 +42,27 @@ typedef struct Encoder {
   H264E_io_yuv_t yuv_planes;
   H264E_run_param_t run_param;
 
-  uint32_t muxer_handle;
+  MP4Muxer *muxer;
 
   H264E_persist_t *enc = nullptr;
   H264E_scratch_t *scratch = nullptr;
 } Encoder;
 
-
-static std::map<uint32_t, Encoder*> mapEncoder;
-static uint32_t mapEncoderHandle = 1;
-
-static std::map<uint32_t, MP4Muxer*> mapMuxer;
-static uint32_t mapMuxerHandle = 1;
-
-static void _write_nal (MP4Muxer *muxer, const uint8_t *data, size_t size)
+static int write_callback (int64_t offset, const void *buffer, size_t size, void *token)
 {
-  mp4_h26x_write_nal(&muxer->writer, data, size, TIMESCALE/(muxer->fps));
+  MP4Muxer *muxer = (MP4Muxer *)token;
+  // val write = *write_ptr;
+  // printf("writing %s\n", (*(muxer->write)).typeOf().as<std::string>().c_str());
+  // printf("creating %s\n", (write).typeOf().as<std::string>().c_str());
+  return 0;
+  // uint8_t *data = (uint8_t*)(buffer);
+  // return write(val((uintptr_t)data), val((int)size), val((int)offset)).as<int>();
+
+  // C code might look like:
+  // FILE *f = (FILE*)encoder->file;
+  // fseek(f, offset, SEEK_SET);
+  // size_t r = fwrite(buffer, 1, size, f);
+  // return r != size;
 }
 
 static void nalu_callback (const uint8_t *nalu_data, int sizeof_nalu_data, void *token)
@@ -66,25 +76,14 @@ static void nalu_callback (const uint8_t *nalu_data, int sizeof_nalu_data, void 
   // HME_CHECK_INTERNAL(data[0] == 0 && data[1] == 0 && data[2] == 0 && data[3] == 1);
 
   // TODO check status MP4E_STATUS_OK
-  _write_nal(muxer, data, nal_size);
+  mp4_h26x_write_nal(&muxer->writer, data, nal_size, TIMESCALE/(muxer->fps));
 }
 
-static int write_callback (int64_t offset, const void *buffer, size_t size, void *token)
+void mux_write_nal (uintptr_t muxer_ptr, uintptr_t nalu_ptr, int nalu_size)
 {
-  MP4Muxer *muxer = (MP4Muxer *)token;
-  uint8_t *data = (uint8_t*)(buffer);
-  return muxer->callback(
-    data,
-    (uint32_t)size,
-    (uint32_t)offset
-  );
-}
-
-void mux_write_nal (uint32_t muxer_handle, uintptr_t nalu_ptr, int nalu_size)
-{
-  MP4Muxer* muxer = mapMuxer[muxer_handle];
+  MP4Muxer* muxer = reinterpret_cast<MP4Muxer*>(muxer_ptr);
   uint8_t* data = reinterpret_cast<uint8_t*>(nalu_ptr);
-  _write_nal(muxer, data, nalu_size);
+  mp4_h26x_write_nal(&muxer->writer, data, nalu_size, TIMESCALE/(muxer->fps));
 }
 
 bool option_exists (val options, std::string key)
@@ -92,38 +91,98 @@ bool option_exists (val options, std::string key)
   return options[key].typeOf().as<std::string>() != "undefined";
 }
 
-uint32_t create_muxer(val options, val write_fn)
+class myval {
+ public:
+    myval()
+    {
+      printf("myval incref constructor\n");
+    }
+    
+    myval(const myval& v)
+    {
+      printf("myval incref copy ctr\n");
+    }
+    ~myval()
+    {
+      printf("myval decref deconstructor\n");
+    }
+};
+
+
+typedef struct MyValHolder {
+  void* v;
+
+  int (*write_callback)(int64_t offset, const void *buffer, size_t size, void *token);
+} MyValHolder;
+
+
+void test_fn (MyValHolder *holder)
 {
-  uint32_t width = options["width"].as<uint32_t>();
-  uint32_t height = options["height"].as<uint32_t>();
-  float fps = option_exists(options, "fps") ? options["fps"].as<float>() : 30.0f;
-  int fragmentation = option_exists(options, "fragmentation") ? options["fragmentation"].as<int>() : 0;
-  int sequential = option_exists(options, "sequential") ? options["sequential"].as<int>() : 0;
-  int hevc = option_exists(options, "hevc") ? options["hevc"].as<int>() : 0;
-  
-  MP4Muxer *muxer = (MP4Muxer *)malloc(sizeof(MP4Muxer));
-  muxer->fps = fps;
-  
-  muxer->callback = [write_fn](const void *buffer, uint32_t size, uint32_t offset) -> int {
-    uint8_t *data = (uint8_t*)(buffer);
-    return write_fn(
-      val((uintptr_t)data),
-      val((uint32_t)size),
-      val((uint32_t)offset)
-    ).as<int>();
-  };
-
-  uint32_t handle = mapMuxerHandle++;
-  mapMuxer[handle] = muxer;
-
-  muxer->mux = MP4E_open(0, 0, muxer, &write_callback);
-  // TODO: handle MP4E_STATUS_OK status
-  mp4_h26x_write_init(&muxer->writer, muxer->mux, width, height, hevc);
-
-  return handle;
+  printf("test_fn\n");
 }
 
-uint32_t create_encoder(val options, val write_fn)
+
+
+uintptr_t create_muxer(val options, val write_fn)
+{
+  // myval newval;
+  // MyValHolder *holder = (MyValHolder *)malloc(sizeof(MyValHolder));
+  // test_fn(holder);
+  
+
+  // val *new_val = (val*)malloc(sizeof(val));
+  
+  // muxer->write = new_val;
+  // muxer->write = &write_fn;
+  // printf("writefn %d\n", (muxer->write).isString());
+
+  // uint32_t width = options["width"].as<uint32_t>();
+  // uint32_t height = options["height"].as<uint32_t>();
+  // float fps = option_exists(options, "fps") ? options["fps"].as<float>() : 30.0f;
+  // int fragmentation = option_exists(options, "fragmentation") ? options["fragmentation"].as<int>() : 0;
+  // int sequential = option_exists(options, "sequential") ? options["sequential"].as<int>() : 0;
+  // int hevc = option_exists(options, "hevc") ? options["hevc"].as<int>() : 0;
+  
+  
+  MP4Muxer *muxer = (MP4Muxer *)malloc(sizeof(MP4Muxer));
+  
+  // val *v2 = nullptr;
+  // val v2 = val(write_fn);
+  // muxer->write = &v2;
+  
+  // muxer->fps = fps;
+  
+  // not sure why I have to do this :(
+  // I guess the 'write' is on stack and trying to keep
+  // reference to it is volatile since it might get lost?
+  
+
+
+  // val write_fn = val(write);
+  // val *write_fn = (val *)malloc(sizeof(val));
+  // memcpy(write_fn, &write, sizeof(val));
+
+  // void* raw_write_fn = malloc(sizeof(val));
+  // void* write_ptr = new(raw_write_fn) val();
+  // val write_copy = val(write);
+  // muxer->write_fn = write_fn;
+  // printf("creating %s\n", (write).typeOf().as<std::string>().c_str());
+
+  // int (*write_callback)(int64_t offset, const void *buffer, size_t size, void *token);
+  //  = [](
+  //   int64_t offset, const void *buffer, size_t size, void *token
+  // ) {
+  //   return 0;
+  // };
+
+  // muxer->mux = MP4E_open(0, 0, muxer->write, &write_callback);
+  // TODO: handle MP4E_STATUS_OK status
+  // mp4_h26x_write_init(&muxer->writer, muxer->mux, width, height, hevc);
+
+  return (uintptr_t)muxer;
+}
+
+uintptr_t create_encoder(val options, val write)
 {
   uint32_t width = options["width"].as<uint32_t>();
   uint32_t height = options["height"].as<uint32_t>();
@@ -139,9 +198,12 @@ uint32_t create_encoder(val options, val write_fn)
   bool rgbFlipY = option_exists(options, "rgbFlipY") ? options["rgbFlipY"].as<bool>() : false;
   uint32_t default_kbps = kbps ? kbps : 5000;
 
-  uint32_t muxer_handle = create_muxer(options, write_fn);
-  MP4Muxer *muxer = mapMuxer[muxer_handle];
+  // val *write_ptr = &write;
+
+  MP4Muxer *muxer = (MP4Muxer *)create_muxer(options, write);
   float fps = muxer->fps;
+  
+  // muxer->fps = fps;
 
   // #ifdef DEBUG
   // printf("width=%d\n", width);
@@ -163,13 +225,10 @@ uint32_t create_encoder(val options, val write_fn)
 
   // Set Options
   Encoder *encoder = (Encoder *)malloc(sizeof(Encoder));
-  uint32_t handle = mapEncoderHandle++;
-  mapEncoder[handle] = encoder;
-
   encoder->width = width;
   encoder->height = height;
   encoder->rgb_flip_y = rgbFlipY;
-  encoder->muxer_handle = muxer_handle;
+  encoder->muxer = muxer;
   
   // Initialize H264 writer
   H264E_create_param_t create_param;
@@ -227,12 +286,12 @@ uint32_t create_encoder(val options, val write_fn)
   encoder->yuv_planes.stride[0] = width;
   encoder->yuv_planes.stride[1] = width / 2;
   encoder->yuv_planes.stride[2] = width / 2;
-  return handle;
+  return (uintptr_t)encoder;
 }
 
-void encode_yuv (uint32_t encoder_handle, uintptr_t buffer_ptr)
+void encode_yuv (uintptr_t encoder_ptr, uintptr_t buffer_ptr)
 {
-  Encoder* encoder = mapEncoder[encoder_handle];
+  Encoder* encoder = reinterpret_cast<Encoder*>(encoder_ptr);
   uint8_t* yuv = reinterpret_cast<uint8_t*>(buffer_ptr);
   uint32_t width = encoder->width;
   uint32_t height = encoder->height;
@@ -251,9 +310,9 @@ void encode_yuv (uint32_t encoder_handle, uintptr_t buffer_ptr)
     &sizeof_coded_data);
 }
 
-void encode_rgb (uint32_t encoder_handle, uintptr_t rgb_buffer_ptr, size_t stride, uintptr_t yuv_buffer_ptr)
+void encode_rgb (uintptr_t encoder_ptr, uintptr_t rgb_buffer_ptr, size_t stride, uintptr_t yuv_buffer_ptr)
 {
-  Encoder* encoder = mapEncoder[encoder_handle];
+  Encoder* encoder = reinterpret_cast<Encoder*>(encoder_ptr);
   uint8_t* yuv = reinterpret_cast<uint8_t*>(yuv_buffer_ptr);
   uint8_t* rgb = reinterpret_cast<uint8_t*>(rgb_buffer_ptr);
 
@@ -297,36 +356,41 @@ void encode_rgb (uint32_t encoder_handle, uintptr_t rgb_buffer_ptr, size_t strid
     }
   }
 
-  encode_yuv(encoder_handle, yuv_buffer_ptr);
+  encode_yuv(encoder_ptr, yuv_buffer_ptr);
 }
 
-void finalize_muxer (uint32_t muxer_handle)
+void finalize_muxer (uintptr_t muxer_ptr)
 {
-  MP4Muxer *muxer = mapMuxer[muxer_handle];
+  MP4Muxer *muxer = reinterpret_cast<MP4Muxer*>(muxer_ptr);
   MP4E_close(muxer->mux);
   mp4_h26x_write_close(&muxer->writer);
   free(muxer);
-  mapMuxer.erase(muxer_handle);
   muxer = nullptr;
 }
 
-void finalize_encoder (uint32_t encoder_handle)
+void finalize_encoder (uintptr_t encoder_ptr)
 {
-  Encoder *encoder = mapEncoder[encoder_handle];
+  Encoder *encoder = reinterpret_cast<Encoder*>(encoder_ptr);
 
   // relese muxer
-  uint32_t muxer_handle = encoder->muxer_handle;
-  finalize_muxer(muxer_handle);
+  MP4Muxer *muxer = encoder->muxer;
+  finalize_muxer((uintptr_t)muxer);
 
   // release encoder
   free(encoder->enc);
   free(encoder->scratch);
   free(encoder);
-  mapEncoder.erase(encoder_handle);
   encoder = nullptr;
 }
 
 EMSCRIPTEN_BINDINGS(H264MP4EncoderBinding) {
+  value_object<Rectangle>("Rectangle")
+      .field("x", &Rectangle::x)
+      .field("y", &Rectangle::y)
+      .field("width", &Rectangle::width)
+      .field("height", &Rectangle::height)
+      .field("color", &Rectangle::color);
+      
   function("create_encoder", &create_encoder);
   function("create_muxer", &create_muxer);
   function("encode_yuv", &encode_yuv);

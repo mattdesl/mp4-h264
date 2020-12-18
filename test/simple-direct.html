@@ -66,16 +66,15 @@
         console.time('encoding');
 
         // Now we can create an encoder interface
-        // const encoder = Encoder.create_encoder({
-        //   width: canvas.width,
-        //   height: canvas.height,
-        //   fps
-        // }, write);
-        console.log('encoding')
-        const muxer = Encoder.create_muxer({
-          width: canvas.width,height:canvas.height,
-          fps
-        }, write);
+        const encoder = Encoder.create_encoder(write);
+        console.log('encoding', encoder)
+
+        const chunk = new Uint8Array([ 10, 5, 10 ]);
+        const p = Encoder._malloc(chunk.byteLength);
+        Encoder.HEAPU8.set(chunk, p);
+        Encoder.encode_data(encoder, p, chunk.length);
+        Encoder._free(p);
+        console.log('and then', encoder);
 
         let frame = 0;
 
