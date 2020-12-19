@@ -6,21 +6,59 @@ Standalone H264 encoder and MP4 muxer compiled with Emscripten into WASM.
 
 > ✨ [Live Demo](https://codepen.io/mattdesl/full/MWjeJMg)
 
-Features:
+Current Features:
 
 - Encode RGB or YUV data into H264 contained in a MP4 file
 - Fully client-side MP4/H264 encoding, works in most modern browsers
 - Also works in Node.js
 - Memory efficient: can be used for very large video files
-- Relatively small footprint (~130 - 150KB before gzip)
+- Relatively small footprint (~144 - 160KB before gzip)
 - Very fast encoding with optional SIMD support
-- Can be used solely as a MP4 muxer, such as alongside WebCodecs VideoEncoder
+- Can be used solely as a MP4 muxer, such as alongside the upcoming [WebCodecs API](https://wicg.github.io/web-codecs/) for *much* faster encoding
 
 Possible Future Features:
 
 - Audio muxing
 - MP4 demuxing
 - ASM.js support for legacy browsers
+
+## Contents
+
+- Examples:
+
+  - [Browser](#example-in-a-web-browser)
+
+  - [Browser + SIMD](#example-with-simd-browser-only)
+
+  - [Node.js](#example-with-nodejs)
+
+  - [As a Muxer Only](#muxing-only)
+
+  - [WebCodecs](#webcodecs)
+
+- [API Docs](#api-structure)
+
+  - [Simple API](#simple-api)
+
+  - [Direct API](#direct-api)
+
+- Tips:
+
+  - [Tips for Speed](#tips-for-speed)
+
+  - [Tips for File Size vs. Quality](#tips-for-file-size-vs-quality)
+
+- [More Advanced Examples](#more-advanced-examples)
+
+- [TODOs](#todos)
+
+- [Contributing](#contributing)
+
+- [Building from C/C++ Source](#building-from-cc-source)
+
+- [Credits](#credits)
+
+- [License](#license)
 
 ## Example in a Web Browser
 
@@ -126,15 +164,13 @@ const fs = require('fs');
     // set data in memory
     Encoder.HEAPU8.set(chunk, p);
     // write NAL units with AnnexB format
-    // [startcode] | [NAL] | [startcode] | [NAL] ...
-    Encoder.muxer_write(mux, p, chunk.byteLength);
+    // <Uint8Array [startcode] | [NAL] | [startcode] | [NAL] ...>
+    Encoder.mux_nal(mux, p, chunk.byteLength);
     Encoder.free_buffer(p);
   }
 
   // this may trigger more writes
   Encoder.finalize_muxer(mux);
-  // now we can close the stream
-  
 
   function write (pointer, size, offset) {
     const buf = Encoder.HEAPU8.slice(pointer, pointer + size);
@@ -143,6 +179,17 @@ const fs = require('fs');
   }
 })();
 ```
+
+See [./test/node-mux.js](./test/node-mux.js) for a full example.
+
+## WebCodecs
+
+If your environment supports WebCodecs, you can use it to achieve much faster encoding (i.e. 3 times faster). This is pretty similar to using "Mux Only", see the [./test/webcodecs.html](./test/webcodecs.html) demo for details.
+
+At the time of writing, WebCodecs is behind a command line flag on Chrome Canary:
+
+- enable `chrome://flags/#enable-experimental-web-platform-features`, or
+- pass `--enable-blink-features=WebCodecs` flag via command line
 
 ## API Structure
 
@@ -191,6 +238,7 @@ Creates a new encoder interface with options:
 - `temporalDenoise` (default false) - use temporal noise supression
 - `sequential` (default false) - set to true if you want MP4 file to be written to sequentially (with no seeking backwards), see [here](https://github.com/lieff/minimp4#muxing)
 - `fragmentation` (default false) - set to true if you want MP4 file to support HLS streaming playback of the file, see [here](https://github.com/lieff/minimp4#muxing)
+- `hevc` (default false) - if true, sets the MP4 muxer to expect HEVC (H.265) input instead of H264, this is only useful for muxing your own H265 data
 
 #### `encoder.encodeRGB(pixels)`
 
@@ -214,7 +262,7 @@ Ends the encoding and frees any internal memory used by this encoder interface, 
 
 Alias for accessing `Encoder.HEAPU8` - note this storage may change as memory is allocated, so you should always access it directly via `encoder.memory()` rather than storing it as a variable.
 
-#### `ptr = encoder.getRGBPointer()`
+#### `ptr = encoder.getRGBPointer()` (experimental)
 
 Allocates if necessary, then returns a pointer into the encoder's internal uint8 memory for an RGB(A) buffer (created using `stride` option).
 
@@ -230,15 +278,15 @@ const ptr = encoder.getRGBPointer();
   encoder.encodeRGBPointer();
 ```
 
-#### `ptr = encoder.getYUVPointer()`
+#### `ptr = encoder.getYUVPointer()` (experimental)
 
 Allocates if necessary, then returns a pointer into the encoder's internal uint8 memory that can be used for faster YUV image transfer. See above.
 
-#### `encoder.encodeRGBPointer()`
+#### `encoder.encodeRGBPointer()` (experimental)
 
 Assuming RGB(A) bytes have already been written into the memory heap at the RGB(A) pointer location, it will then encode those bytes directly.
 
-#### `encoder.encodeYUVPointer()`
+#### `encoder.encodeYUVPointer()` (experimental)
 
 Assuming YUV bytes have already been written into the memory heap at the YUV pointer location, it will then encode those bytes directly.
 
@@ -246,17 +294,17 @@ Assuming YUV bytes have already been written into the memory heap at the YUV poi
 
 Instead of returning an interface with functions, the direct API returns pointers into `Encoder.HEAPU8` memory, and then all functions act on the pointer into the encoder's struct.
 
-- `ptr = Encoder.create_encoder(settings, write)` - allocates and creates an internal struct holding the encoder, the `settings` are the same as in the Simple API but `{ stride }` is ignored. The `write` is a write callback that allows you to handle byte writing, with the signature:
+- `enc = Encoder.create_encoder(settings, write)` - allocates and creates an internal struct holding the encoder, the `settings` are the same as in the Simple API but `{ stride }` is ignored. The `write` is a write callback that allows you to handle byte writing, with the signature:
   - `error = write(data_ptr, data_size, file_seek_offset)`
-- `ptr = Encoder.create_buffer(byteLength)` - creates a pointer to a buffer, for RGB(A) or YUV data, this must be freed manually
-- `Encoder.free_buffer(ptr)` - frees a created buffer pointer
+- `ptr = Encoder.create_buffer(byteLength)` - creates a pointer to a buffer, for RGB(A) or YUV data, this must be freed manually. Same as `ptr = Encoder._malloc(len)`
+- `Encoder.free_buffer(ptr)` - frees a created buffer pointer, same as `ptr = Encoder._free(len)`
 - `Encoder.HEAPU8` - access the current Uint8Array storage of the encoder
-- `Encoder.encode_rgb(encoder_ptr, rgba_ptr, stride, yuv_ptr)` - converts RGB into YUV and then encodes it
-- `Encoder.encode_yuv(encoder_ptr, yuv_ptr)` - encodes YUV directly
-- `Encoder.finalize_encoder(encoder_ptr)` - finishes encoding the MP4 file and frees any memory allocated internally by the encoder structure
+- `Encoder.encode_rgb(enc, rgba_ptr, stride, yuv_ptr)` - converts RGB into YUV and then encodes it
+- `Encoder.encode_yuv(enc, yuv_ptr)` - encodes YUV directly
+- `Encoder.finalize_encoder(enc)` - finishes encoding the MP4 file and frees any memory allocated internally by the encoder structure
 - `mux = Encoder.create_muxer(settings, write)` - allocates and creates an internal struct holding the muxer (MP4 only), with settings `{ width, height, [sequential=false, fragmentation=false] }` and a write function
-- `Encoder.muxer_write_nal(mux_ptr, nal_data, nal_size)` - writes NAL units to the currently open muxer
-- `Encoder.finalize_muxer(muxer_ptr)` - finishes muxing the MP4 file and frees any memory allocated internally
+- `Encoder.mux_nal(mux, nal_data, nal_size)` - writes NAL units to the currently open muxer
+- `Encoder.finalize_muxer(mux)` - finishes muxing the MP4 file and frees any memory allocated internally
 
 ```js
 const outputs = [];
@@ -297,11 +345,13 @@ const mp4File = Buffer.concat(outputs);
 
 ## Tips for Speed
 
+- Use WebCodecs where supported
 - Use SIMD if the environment supports it
 - Use a worker to split the rendering and encoding into two threads
 - Use pointers (`encoder.encodeRGBPointer()`) where possible to avoid unnecessary data copies in and out of WASM memory
-- You can use WebGL2 to read RGB(A) pixels directly into HEAPU8 memory with `gl.readPixels`
-  - If you are rendering a WebGL2 app, you might be able to do this directly from your app's rendering context to avoid any copies
+- You can use WebGL to read RGB(A) pixels directly into HEAPU8 memory with `gl.readPixels`
+  - If you are using WebGL1, you can use `encoder.memory()` or `Encoder.HEAPU8` and then `subarray()` to get a view that you can write into
+  - If you are using WebGL2, `gl.readPixels` includes an offset parameter for where to write into
 - Use OffscreenCanvas if supported and your rendering doesn't need to be visible to the user
 
 ## Tips for File Size vs. Quality
@@ -337,6 +387,7 @@ See the [./test](./test) folder for examples including SIMD, multi-threading, fa
 ## TODOs
 
 - Better error handling
+- Explore a more user-friendly and pointer-safe API for writing memory to Emscripten
 - Better support for Webpack, Parcel, esbuild, Rollup etc.
 - Expose more encoder options from C/C++
 
@@ -356,7 +407,7 @@ Currently you need Emscripten with SIMD supported. Then modify the paths in `./s
 
 ## Credits
 
-This was originally based on [h264-mp4-encoder](https://github.com/TrevorSundberg/h264-mp4-encoder), but it's been modified quite a bit to reduce the size (~1.7MB to ~150KB), use a different architecture for faster encoding and streamed writing, and use different C libraries (minimp4 instead of libmp4v2).
+This was originally based on [h264-mp4-encoder](https://github.com/TrevorSundberg/h264-mp4-encoder) by Trevor Sundberg, but it's been modified quite a bit to reduce the size (~1.7MB to ~150KB), use a different architecture for faster encoding and streamed writing, and use different C libraries (minimp4 instead of libmp4v2).
 
 Also see [minimp4](https://github.com/lieff/minimp4) and [minih264](https://github.com/lieff/minih264/) by @lieff, which are the lightweight C libraries powering this module.
 

@@ -58,7 +58,7 @@ files.sort((a, b) => a.frame - b.frame);
   console.timeEnd("encoding");
 
   const buf = encoder.end();
-  await writeFile(path.resolve(__dirname, "node-output.mp4"), buf);
+  await writeFile(path.resolve(__dirname, "outputs/node-output.mp4"), buf);
 })();
 
 function draw(t, width, height, stride = 3) {

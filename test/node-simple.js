@@ -31,7 +31,7 @@ const writeFile = promisify(fs.writeFile);
 
   const buffer = encoder.end();
   console.timeEnd("encoding");
-  await writeFile(path.resolve(__dirname, "node-output.mp4"), buffer);
+  await writeFile(path.resolve(__dirname, "outputs/node-output.mp4"), buffer);
 })();
 
 function draw(t, width, height, stride = 3) {

@@ -80,7 +80,7 @@ static int write_callback (int64_t offset, const void *buffer, size_t size, void
   );
 }
 
-void mux_write_nal (uint32_t muxer_handle, uintptr_t nalu_ptr, int nalu_size)
+void mux_nal (uint32_t muxer_handle, uintptr_t nalu_ptr, int nalu_size)
 {
   MP4Muxer* muxer = mapMuxer[muxer_handle];
   uint8_t* data = reinterpret_cast<uint8_t*>(nalu_ptr);
@@ -96,10 +96,21 @@ uint32_t create_muxer(val options, val write_fn)
 {
   uint32_t width = options["width"].as<uint32_t>();
   uint32_t height = options["height"].as<uint32_t>();
-  float fps = option_exists(options, "fps") ? options["fps"].as<float>() : 30.0f;
-  int fragmentation = option_exists(options, "fragmentation") ? options["fragmentation"].as<int>() : 0;
-  int sequential = option_exists(options, "sequential") ? options["sequential"].as<int>() : 0;
-  int hevc = option_exists(options, "hevc") ? options["hevc"].as<int>() : 0;
+  float fps = options["fps"].isNumber() ? options["fps"].as<float>() : 30.0f;
+  int fragmentation = options["fragmentation"].isTrue() ? 1 : 0;
+  int sequential = options["sequential"].isTrue() ? 1 : 0;
+  int hevc = options["hevc"].isTrue() ? 1 : 0;
+
+  #ifdef DEBUG
+  printf("Mux Options ---\n");
+  printf("width=%d\n", width);
+  printf("height=%d\n", height);
+  printf("fps=%f\n", fps);
+  printf("sequential=%d\n", sequential);
+  printf("fragmentation=%d\n", fragmentation);
+  printf("hevc=%d\n", hevc);
+  printf("\n");
+  #endif
   
   MP4Muxer *muxer = (MP4Muxer *)malloc(sizeof(MP4Muxer));
   muxer->fps = fps;
@@ -116,7 +127,7 @@ uint32_t create_muxer(val options, val write_fn)
   uint32_t handle = mapMuxerHandle++;
   mapMuxer[handle] = muxer;
 
-  muxer->mux = MP4E_open(0, 0, muxer, &write_callback);
+  muxer->mux = MP4E_open(sequential, fragmentation, muxer, &write_callback);
   // TODO: handle MP4E_STATUS_OK status
   mp4_h26x_write_init(&muxer->writer, muxer->mux, width, height, hevc);
 
@@ -127,39 +138,42 @@ uint32_t create_encoder(val options, val write_fn)
 {
   uint32_t width = options["width"].as<uint32_t>();
   uint32_t height = options["height"].as<uint32_t>();
-  uint32_t speed = option_exists(options, "speed") ? options["speed"].as<uint32_t>() : 10;
-  uint32_t kbps = option_exists(options, "kbps") ? options["kbps"].as<uint32_t>() : 0;
-  uint32_t quantizationParameter = option_exists(options, "quantizationParameter") ? options["quantizationParameter"].as<uint32_t>() : 10;
-  uint32_t qpMin = option_exists(options, "qpMin") ? options["qpMin"].as<uint32_t>() : 10;
-  uint32_t qpMax = option_exists(options, "qpMax") ? options["qpMax"].as<uint32_t>() : 51;
-  uint32_t groupOfPictures = option_exists(options, "groupOfPictures") ? options["groupOfPictures"].as<uint32_t>() : 20;
-  uint32_t desiredNaluBytes = option_exists(options, "desiredNaluBytes") ? options["desiredNaluBytes"].as<uint32_t>() : 0;
-  int vbvSize = option_exists(options, "vbvSize") ? options["vbvSize"].as<int>() : -1;
-  int temporalDenoise = option_exists(options, "temporalDenoise") ? options["temporalDenoise"].as<int>() : 0;
-  bool rgbFlipY = option_exists(options, "rgbFlipY") ? options["rgbFlipY"].as<bool>() : false;
+  uint32_t speed = options["speed"].isNumber() ? options["speed"].as<uint32_t>() : 10;
+  uint32_t kbps = options["kbps"].isNumber() ? options["kbps"].as<uint32_t>() : 0;
+  uint32_t quantizationParameter = options["quantizationParameter"].isNumber() ? options["quantizationParameter"].as<uint32_t>() : 10;
+  uint32_t qpMin = options["qpMin"].isNumber() ? options["qpMin"].as<uint32_t>() : 10;
+  uint32_t qpMax = options["qpMax"].isNumber() ? options["qpMax"].as<uint32_t>() : 51;
+  uint32_t groupOfPictures = options["groupOfPictures"].isNumber() ? options["groupOfPictures"].as<uint32_t>() : 20;
+  uint32_t desiredNaluBytes = options["desiredNaluBytes"].isNumber() ? options["desiredNaluBytes"].as<uint32_t>() : 0;
+  int vbvSize = options["vbvSize"].isNumber() ? options["vbvSize"].as<int>() : -1;
+  int temporalDenoise = options["temporalDenoise"].isTrue() ? 1 : 0;
+  bool rgbFlipY = options["rgbFlipY"].isTrue() ? true : false;
   uint32_t default_kbps = kbps ? kbps : 5000;
+  // printf("isNum %d\n", options["foobar"].isNumber());
 
   uint32_t muxer_handle = create_muxer(options, write_fn);
   MP4Muxer *muxer = mapMuxer[muxer_handle];
   float fps = muxer->fps;
 
-  // #ifdef DEBUG
-  // printf("width=%d\n", width);
-  // printf("height=%d\n", height);
-  // printf("fps=%f\n", fps);
-  // printf("rgbFlipY=%d\n", rgbFlipY);
-  // printf("speed=%d\n", speed);
-  // printf("kbps=%d\n", kbps);
-  // printf("vbvSize=%d\n", vbvSize);
-  // printf("qpMin=%d\n", qpMin);
-  // printf("qpMax=%d\n", qpMax);
-  // printf("quantizationParameter=%d\n", quantizationParameter);
-  // printf("groupOfPictures=%d\n", groupOfPictures);
-  // printf("desiredNaluBytes=%d\n", desiredNaluBytes);
-  // printf("fragmentation=%d\n", fragmentation);
-  // printf("sequential=%d\n", sequential);
-  // printf("temporalDenoise=%d\n", temporalDenoise);
-  // #endif
+  #ifdef DEBUG
+  printf("Encoder Options ---\n");
+  printf("width=%d\n", width);
+  printf("height=%d\n", height);
+  printf("fps=%f\n", fps);
+  printf("rgbFlipY=%d\n", rgbFlipY);
+  printf("speed=%d\n", speed);
+  printf("kbps=%d\n", kbps);
+  printf("vbvSize=%d\n", vbvSize);
+  printf("qpMin=%d\n", qpMin);
+  printf("qpMax=%d\n", qpMax);
+  printf("quantizationParameter=%d\n", quantizationParameter);
+  printf("groupOfPictures=%d\n", groupOfPictures);
+  printf("desiredNaluBytes=%d\n", desiredNaluBytes);
+  printf("fragmentation=%d\n", fragmentation);
+  printf("sequential=%d\n", sequential);
+  printf("temporalDenoise=%d\n", temporalDenoise);
+  printf("\n");
+  #endif
 
   // Set Options
   Encoder *encoder = (Encoder *)malloc(sizeof(Encoder));
@@ -331,7 +345,7 @@ EMSCRIPTEN_BINDINGS(H264MP4EncoderBinding) {
   function("create_muxer", &create_muxer);
   function("encode_yuv", &encode_yuv);
   function("encode_rgb", &encode_rgb);
-  function("mux_write_nal", &mux_write_nal);
+  function("mux_nal", &mux_nal);
   function("finalize_encoder", &finalize_encoder);
   function("finalize_muxer", &finalize_muxer);
 }

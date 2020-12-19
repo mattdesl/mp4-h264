@@ -21,12 +21,6 @@
 
 using namespace emscripten;
 
-// typedef struct MuxOptions {
-//   uint32_t width;
-//   uint32_t height;
-//   float fps;
-// } MuxOptions;
-
 typedef struct MP4Muxer {
   MP4E_mux_t *mux = nullptr;
   mp4_h26x_writer_t writer;

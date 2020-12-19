@@ -1,7 +1,7 @@
-function SimpleMemoryFile() {
+Module['file'] = Module['file'] || function file(initialCapacity = 256) {
   let cursor = 0;
   let usedBytes = 0;
-  let contents = new Uint8Array(256);
+  let contents = new Uint8Array(initialCapacity);
   return {
     'contents': function () {
       return contents.slice(0, usedBytes);
@@ -10,9 +10,10 @@ function SimpleMemoryFile() {
       // offset in bytes
       cursor = offset;
     },
-    'write': function (memory, pointer, size) {
+    'write': function (data) {
+      const size = data.byteLength;
       expand(cursor + size);
-      contents.set(memory.subarray(pointer, pointer + size), cursor);
+      contents.set(data, cursor);
       cursor += size;
       usedBytes = Math.max(usedBytes, cursor);
       return size;
@@ -54,7 +55,7 @@ Module['create'] = function createEncoder(settings = {}) {
   const stride = settings['stride'] || 4;
   if (!width || !height) throw new Error("width and height must be > 0");
 
-  const file = SimpleMemoryFile();
+  const file = Module['file']();
 
   let _yuv_pointer = null;
   let _rgb_pointer = null;
@@ -125,7 +126,8 @@ Module['create'] = function createEncoder(settings = {}) {
 
   function write(pointer, size, offset) {
     file['seek'](offset);
-    return file['write'](Module['HEAPU8'], pointer, size) != size;
+    const data = Module['HEAPU8'].subarray(pointer, pointer + size);
+    return file['write'](data) !== data.byteLength;
   }
 }
 

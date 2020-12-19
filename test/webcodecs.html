@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+  </head>
+
+  <body>
+    <div>Encoding N frames at 1920x1080</div>
+    <br />
+    <canvas
+    style="width: 20vw; height: auto; border: 1px solid black"
+    ></canvas>
+    <script type="module">
+      import loadEncoder from "/build/mp4-encoder.js";
+      const START_CODE = new Uint8Array([ 0, 0, 0, 1 ]);
+
+      const width = 1920;
+      const height = 1080;
+
+      const canvas = document.getElementsByTagName("canvas")[0];
+      canvas.width = width;
+      canvas.height = height;
+      // const canvas = new OffscreenCanvas(width, height)
+      const ctx = canvas.getContext("2d", {
+        // colorSpace: "display-p3",
+        // storageFormat: "float16"
+      });
+      const drawFrame = (interpolant) => {
+        ctx.fillStyle = "#0000FF";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = "#FF0000";
+        ctx.fillRect(
+          0,
+          0,
+          canvas.width * interpolant,
+          canvas.height * interpolant
+        );
+      };
+
+      const show = (data, width, height) => {
+        // const url = URL.createObjectURL(new Blob([data], { type: "video/H264" }));
+        const url = URL.createObjectURL(new Blob([data], { type: "video/mp4" }));
+        const video = document.createElement("video");
+        video.setAttribute("muted", "muted");
+        video.setAttribute("autoplay", "autoplay");
+        video.setAttribute("controls", "controls");
+        const min = Math.min(width, window.innerWidth, window.innerHeight);
+        const aspect = width / height;
+        const size = min * 0.75;
+        video.style.width = `${size}px`;
+        video.style.height = `${size / aspect}px`;
+
+        const container = document.body;
+        container.appendChild(video);
+        video.src = url;
+
+        const text = document.createElement("div");
+        const anchor = document.createElement("a");
+        text.appendChild(anchor);
+        anchor.href = url;
+        anchor.id = "download";
+        anchor.textContent = "Click here to download MP4 file...";
+        anchor.download = "download.mp4";
+        container.appendChild(text);
+      };
+
+
+      const download = (buf, filename) => {
+        const url = URL.createObjectURL(new Blob([buf], { type: "video/mp4" }));
+        const anchor = document.createElement("a");
+        anchor.href = url;
+        anchor.download = filename || "download";
+        anchor.click();
+      };
+
+      async function createEncoder (width, height, fps) {
+        const Encoder = await loadEncoder();
+
+        const encoderOutputs = [];
+        const nalFrames = [];
+        const mp4Outputs = [];
+
+        const init = {
+          output: h264_write,
+          error: (e) => {
+            console.error(e.message);
+          }
+        };
+
+        const file = Encoder.file();
+        const mux = Encoder.create_muxer({
+          width,
+          height,
+          fps,
+        }, mux_write);
+
+        const config = {
+          // codec: 'avc1.4d401e',
+          // codec: 'avc1.4d002a',
+          // codec: 'avc1.4d0028',
+          codec: 'avc1.420034',
+
+          // progressive
+          // codec: 'avc1.6e0034',
+          width: width,
+          height: height,
+          // acceleration: 'allow',
+          bitrate: 2_000_000, // N Mbps
+          // framerate: fps,
+        };
+
+        const encoder = new VideoEncoder(init);
+        encoder.configure(config);
+
+        return {
+          async end () {
+            await encoder.flush();
+            encoder.close();
+
+            Encoder.finalize_muxer(mux);
+            return file.contents();
+          },
+          addFrame (bitmap, keyFrame, time = 0) {
+            time *= 1000000; // in microseconds
+            let frame = new VideoFrame(bitmap, { timestamp: time });
+            const ret = encoder.encode(frame, { keyFrame });
+            frame.destroy();
+          },
+          flush () {
+            return encoder.flush();
+          }
+        }
+
+        function concatBuffers (arrays) {
+          // Calculate byteSize from all arrays
+          const size = arrays.reduce((a,b) => a + b.byteLength, 0)
+          // Allcolate a new buffer
+          const result = new Uint8Array(size);
+          let offset = 0;
+          for (let i = 0; i < arrays.length; i++) {
+            const arr = arrays[i];
+            result.set(arr, offset);
+            offset += arr.byteLength;
+          }
+          return result;
+        }
+
+        function mux_write (data_ptr, size, offset) {
+          // seek to byte offset in file
+          file.seek(offset);
+          // get subarray of memory we are writing
+          const data = Encoder.HEAPU8.subarray(data_ptr, data_ptr + size);
+          // write into virtual file
+          return file.write(data) !== data.byteLength;
+        }
+
+        function convertAVCToAnnexBInPlaceForLength4 (arrayBuf) {
+          const kLengthSize = 4;
+          let pos = 0;
+          const chunks = [];
+          const size = arrayBuf.byteLength;
+          const uint8 = new Uint8Array(arrayBuf);
+          while (pos + kLengthSize < size) {
+            // read uint 32, 4 byte NAL length
+            let nal_length = uint8[pos];
+            nal_length = (nal_length << 8) + uint8[pos+1];
+            nal_length = (nal_length << 8) + uint8[pos+2];
+            nal_length = (nal_length << 8) + uint8[pos+3];
+
+            chunks.push(new Uint8Array(arrayBuf, pos + kLengthSize, nal_length));
+            if (nal_length == 0) throw new Error('erro')
+            pos += kLengthSize + nal_length;
+          }
+          return chunks;
+        }
+
+        function parseAVCC (avcc) {
+          const view = new DataView(avcc);
+          let off = 0;
+          const version = view.getUint8(off++)
+          const profile = view.getUint8(off++);
+          const compat = view.getUint8(off++);
+          const level = view.getUint8(off++);
+          const length_size = (view.getUint8(off++) & 0x3) + 1;
+          if (length_size !== 4) throw new Error('Expected length_size to indicate 4 bytes')
+          const numSPS = view.getUint8(off++) & 0x1f;
+          const sps_list = [];
+          for (let i = 0; i < numSPS; i++) {
+            const sps_len = view.getUint16(off, false);
+            off += 2;
+            const sps = new Uint8Array(view.buffer, off, sps_len);
+            sps_list.push(sps);
+            off += sps_len;
+          }
+          const numPPS = view.getUint8(off++);
+          const pps_list = [];
+          for (let i = 0; i < numPPS; i++) {
+            const pps_len = view.getUint16(off, false);
+            off += 2;
+            const pps = new Uint8Array(view.buffer, off, pps_len);
+            pps_list.push(pps)
+            off += pps_len;
+          }
+          return {
+            offset: off,
+            version,
+            profile,
+            compat,
+            level,
+            length_size,
+            pps_list,
+            sps_list,
+            numSPS
+          }
+        }
+
+        function write_nal (uint8) {
+          const p = Encoder._malloc(uint8.byteLength);
+          Encoder.HEAPU8.set(uint8, p);
+          Encoder.mux_nal(mux, p, uint8.byteLength);
+          Encoder._free(p);
+        }
+        
+        function h264_write (chunk, opts) {
+          let avccConfig = null;
+          if (opts.description) {
+            avccConfig = parseAVCC(opts.description);
+          }
+
+          const nal = [];
+          if (avccConfig) {
+            avccConfig.sps_list.forEach(sps => {
+              nal.push(START_CODE);
+              nal.push(sps);
+            });
+            avccConfig.pps_list.forEach(pps => {
+              nal.push(START_CODE);
+              nal.push(pps);
+            });
+          }
+          
+          convertAVCToAnnexBInPlaceForLength4(chunk.data).forEach(sub => {
+            nal.push(START_CODE);
+            nal.push(sub);
+          });
+
+
+          write_nal(concatBuffers(nal))
+        }
+      }
+
+      (async () => {
+        const fps = 60;
+        const duration = 1
+        let frame = 0;
+        let totalFrames = Math.round(fps * duration);
+        // let totalFrames = 300;
+
+        console.time('encode');
+        const encoder = await createEncoder(width, height, fps);
+
+        requestAnimationFrame(loop);
+
+        async function loop() {
+          if (frame >= totalFrames) {
+            await encoder.flush()
+            const buf = await encoder.end();
+            console.timeEnd('encode');
+
+            show(buf, width, height);
+            return;
+          }
+
+
+          drawFrame(frame / (totalFrames - 1));
+          console.log(frame, totalFrames)
+          // const bitmap = canvas.transferToImageBitmap();
+          const bitmap = await createImageBitmap(canvas);
+          const timestamp = 1 / fps * frame;
+          const keyframe = frame % 20 === 0;
+          encoder.addFrame(bitmap, keyframe, timestamp);
+          if ((frame + 1) % 10 === 0) {
+            await encoder.flush()
+          }
+
+          requestAnimationFrame(loop);
+          frame++;
+          
+        }
+      })();
+    </script>
+    <script></script>
+  </body>
+</html>
