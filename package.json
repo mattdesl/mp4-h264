@@ -13,10 +13,13 @@
     "email": "dave.des@gmail.com",
     "url": "https://github.com/mattdesl"
   },
-  "dependencies": {},
+  "dependencies": {
+    "from2": "^2.3.0"
+  },
   "devDependencies": {
     "get-pixels": "^3.3.2",
-    "serve": "^11.3.2"
+    "serve": "^11.3.2",
+    "serve-handler": "^6.1.3"
   },
   "scripts": {
     "test": "serve ."
