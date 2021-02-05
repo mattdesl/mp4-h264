@@ -15,19 +15,31 @@ cd embuild
 
 rm -rf *.js
 
-cmake -DUSE_SIMD=ON -DWEB=ON -DCMAKE_TOOLCHAIN_FILE=$EMSCRIPTEN/cmake/Modules/Platform/Emscripten.cmake ..
+# Web ES6 SIMD build
+cmake -DUSE_SIMD=ON -DASMJS=OFF -DWEB=ON -DCMAKE_TOOLCHAIN_FILE=$EMSCRIPTEN/cmake/Modules/Platform/Emscripten.cmake ..
 cmake --build .
 
-cmake -DUSE_SIMD=OFF -DWEB=ON -DCMAKE_TOOLCHAIN_FILE=$EMSCRIPTEN/cmake/Modules/Platform/Emscripten.cmake ..
+# Web ES6 no-SIMD build
+cmake -DUSE_SIMD=OFF -DASMJS=OFF -DWEB=ON -DCMAKE_TOOLCHAIN_FILE=$EMSCRIPTEN/cmake/Modules/Platform/Emscripten.cmake ..
+cmake --build .
+
+# Web ASM no-SIMD build
+cmake -DUSE_SIMD=OFF -DASMJS=ON -DWEB=ON -DCMAKE_TOOLCHAIN_FILE=$EMSCRIPTEN/cmake/Modules/Platform/Emscripten.cmake ..
 cmake --build .
 
 cp mp4-encoder.js ../../../build/mp4-encoder.js
+cp mp4-encoder.asm.js ../../../build/mp4-encoder.asm.js
 cp mp4-encoder.wasm ../../../build/mp4-encoder.wasm
 cp mp4-encoder.simd.wasm ../../../build/mp4-encoder.simd.wasm
 
-cmake -DUSE_SIMD=OFF -DWEB=OFF -DCMAKE_TOOLCHAIN_FILE=$EMSCRIPTEN/cmake/Modules/Platform/Emscripten.cmake ..
+# Node WASM no-SIMD build
+cmake -DUSE_SIMD=OFF -DASMJS=OFF -DWEB=OFF -DCMAKE_TOOLCHAIN_FILE=$EMSCRIPTEN/cmake/Modules/Platform/Emscripten.cmake ..
 cmake --build .
 cp mp4-encoder.node.js ../../../build/mp4-encoder.node.js
 cp mp4-encoder.node.wasm ../../../build/mp4-encoder.node.wasm
+
+
+
+
 
 
