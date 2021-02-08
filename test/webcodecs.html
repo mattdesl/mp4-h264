@@ -80,8 +80,12 @@
         const nalFrames = [];
         const mp4Outputs = [];
 
+        // Can be annexb (can be encoded directly) or
+        // 'avc' (needs to be converted to annexb in our JS)
+        const format = 'annexb';
+
         const init = {
-          output: h264_write,
+          output: (chunk, opts) => h264_write(chunk, opts, format),
           error: (e) => {
             console.error(e.message);
           }
@@ -104,6 +108,9 @@
           // codec: 'avc1.6e0034',
           width: width,
           height: height,
+          avc: {
+            format,
+          },
           // acceleration: 'allow',
           bitrate: 2_000_000, // N Mbps
           // framerate: fps,
@@ -124,7 +131,7 @@
             time *= 1000000; // in microseconds
             let frame = new VideoFrame(bitmap, { timestamp: time });
             const ret = encoder.encode(frame, { keyFrame });
-            frame.destroy();
+            frame.close();
           },
           flush () {
             return encoder.flush();
@@ -221,7 +228,7 @@
           Encoder._free(p);
         }
         
-        function h264_write (chunk, opts) {
+        function h264_write (chunk, opts, format = 'avc') {
           let avccConfig = null;
           if (opts.description) {
             avccConfig = parseAVCC(opts.description);
@@ -238,11 +245,15 @@
               nal.push(pps);
             });
           }
-          
-          convertAVCToAnnexBInPlaceForLength4(chunk.data).forEach(sub => {
-            nal.push(START_CODE);
-            nal.push(sub);
-          });
+
+          if (format === 'annexb') {
+            nal.push(new Uint8Array(chunk.data))
+          } else {
+            convertAVCToAnnexBInPlaceForLength4(chunk.data).forEach(sub => {
+              nal.push(START_CODE);
+              nal.push(sub);
+            });
+          }
 
 
           write_nal(concatBuffers(nal))
