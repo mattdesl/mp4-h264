@@ -32,8 +32,6 @@ Possible Future Features:
 
   - [Node.js](#example-with-nodejs)
 
-  - [Bundlers](#example-with-bundlers)
-
   - [As a Muxer Only](#muxing-only)
 
   - [WebCodecs](#webcodecs)
@@ -140,18 +138,6 @@ const loadEncoder = require("mp4-h264");
   // ... same API as web ...
 })();
 ```
-
-## Example with Web Bundlers
-
-Some bundlers might not support `import.meta.url` (which is used in the ESM entry point to determine the correct location of the WASM file), and also generally have difficulty including `.wasm` files as part of their build chain. If you're running into these issues, you can use the simpler `.asm.js` entrypoint, which may not run as fast (as it's not using WASM but ASM.js).
-
-```js
-import loadMP4Encoder from 'mp4-h264/build/mp4-encoder.asm.js';
-
-// ...
-```
-
-If you think you can improve WASM support with Webpack and similar bundlers, please see [this](https://github.com/mattdesl/mp4-h264/issues/9) issue.
 
 ## Muxing Only
 

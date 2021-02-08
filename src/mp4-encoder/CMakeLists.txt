@@ -31,7 +31,7 @@ if(EMSCRIPTEN)
         --pre-js ../api.js\
         -O3\
         --closure 1\
-        -g\
+        -g0\
         --bind\
     ")
 
@@ -40,24 +40,9 @@ if(EMSCRIPTEN)
     )
     
     option(USE_SIMD "Use SIMD" OFF)
-    option(ASMJS "Use ASMJS" OFF)
     option(WEB "Use Web Env" OFF)
 
-    if (ASMJS)
-      # asm.js build for legacy web systems and some bundlers
-      set(CMAKE_CXX_FLAGS "\
-          ${CMAKE_CXX_FLAGS}\
-          -s SINGLE_FILE=1\
-          -s EXPORT_NAME=MP4H264\
-          -s ENVIRONMENT=web,worker\
-      ")
-      set_target_properties(
-          mp4-encoder
-          PROPERTIES
-              SUFFIX ".asm.js"
-      )
-    elseif (WEB)
-      # WASM SIMD and non-SIMD builds for new systems
+    if (WEB)
       set(CMAKE_CXX_FLAGS "\
           ${CMAKE_CXX_FLAGS}\
           -s EXPORT_ES6=1\
@@ -85,8 +70,7 @@ if(EMSCRIPTEN)
                 SUFFIX ".js"
         )
       endif(USE_SIMD)
-    else()
-      # WASM non-SIMD for Node.js
+    else ()
       set(CMAKE_CXX_FLAGS "\
           ${CMAKE_CXX_FLAGS}\
           -s EXPORT_ES6=0\
@@ -97,9 +81,8 @@ if(EMSCRIPTEN)
           PROPERTIES
               SUFFIX ".node.js"
       )
-    endif(ASMJS)
+    endif(WEB)
 
-    unset(ASMJS CACHE)
     unset(WEB CACHE)
     unset(USE_SIMD CACHE)
 endif()
