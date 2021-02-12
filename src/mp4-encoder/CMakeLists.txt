@@ -7,7 +7,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fpermissive")
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -lpthread")
 
 add_executable(mp4-encoder
-  mp4-encoder.cpp
+  mp4.cpp
 )
 
 target_include_directories(mp4-encoder PRIVATE

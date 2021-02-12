@@ -1,10 +1,26 @@
-# mp4-h264
 
-###### (This module is still in development, and some things may change)
+:skull: :warning:
+
+## Project Suspended
+
+It has come to my attention that MPEG LA often goes after any distributed software (free / OSS / commercial) that encodes H264 video, and charges huge royalties on it. I don't wish to navigate this legal landscape for this module, so all of the binary and source code surrounding the H264 encoding has now been removed from this project, and the development of the project is suspended until further notice.
+
+However:
+
+- The documentation and examples here will stay as they provide valuable information for speeding up WASM and media handling (not related to H264)
+
+- Chrome is still trialing [WebCodecs](https://github.com/WICG/web-codecs) which already supports encoding H264 without incurring royalties (as it is handled by Chrome's licenses). One part of this project was a WASM-based MP4 muxer (not encumbered by MPEG LA patents), and that will be split off into a new WASM module that only muxes already-encoded H264 data. So, at least in future versions of Chrome, fast client-side media creation should still be possible.
+
+What follows is the previous version of the repository, with all the H264 WASM/C/C++ source code and binary files removed.
+
+---
+
+
+# mp4-h264
 
 Standalone H264 encoder and MP4 muxer compiled with Emscripten into WASM.
 
-> ✨ [Live Demo](https://codepen.io/mattdesl/full/MWjeJMg)
+> ✨ Live Demo **(redacted)**
 
 Current Features:
 
@@ -66,10 +82,7 @@ You can import the module directly as an ES Module using `<script type="module">
 
 ```js
 // Import latest
-import loadEncoder from "https://unpkg.com/mp4-h264";
-
-// Or, import a specific npm version
-// import loadEncoder from "https://unpkg.com/mp4-h264@1.0.3";
+import loadEncoder from "[redacted]";
 
 (async () => {
   // Load the WASM module first
@@ -113,7 +126,7 @@ In code, you need to detect SIMD — if you try to load SIMD WASM in an unsuppor
 
 ```js
 import { simd } from "https://unpkg.com/wasm-feature-detect?module";
-import loadEncoder from "https://unpkg.com/mp4-h264";
+import loadEncoder from "[redacted]";
 
 (async () => {
   // Detect SIMD
@@ -131,7 +144,7 @@ import loadEncoder from "https://unpkg.com/mp4-h264";
 The default main export of this module is a Node.js compatible WASM build, so this works with newer versions of Node.js. Note that there is no SIMD build for Node.js at the moment.
 
 ```js
-const loadEncoder = require("mp4-h264");
+const loadEncoder = require("[redacted]");
 
 (async () => {
   const Encoder = await loadEncoder();
@@ -144,7 +157,7 @@ const loadEncoder = require("mp4-h264");
 Let's say you already have H264 data and just want to use this to mux it into an MP4 container, then you'll want to use the lower-level Direct API like so:
 
 ```js
-const loadEncoder = require('mp4-h264');
+const loadEncoder = require('[redacted]');
 const fs = require('fs');
 
 (async () => {
@@ -397,13 +410,13 @@ If you think you can help, please open an issue.
 
 ## Building from C/C++ Source
 
+*NOTE: this has now been removed from the project*
+
 Currently you need Emscripten with SIMD supported. Then modify the paths in `./src/mp4-encoder/build.sh` to your emcc build. Then, from this package's folder, run:
 
 ```sh
 ./src/mp4-encoder/build.sh 
 ```
-
-*TODO - could do with help improving this build step*
 
 ## Credits
 

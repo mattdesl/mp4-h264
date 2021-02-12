@@ -17,7 +17,10 @@
 #include <string>
 #include <stdint.h>
 #include <functional>
-#include "minih264e.h"
+
+// Removed due to patent concerns
+// #include "minih264e.h"
+
 #include "minimp4.h"
 
 using namespace emscripten;
