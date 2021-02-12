@@ -11,6 +11,8 @@ However:
 
 - Chrome is still trialing [WebCodecs](https://github.com/WICG/web-codecs) which already supports encoding H264 without incurring royalties (as it is handled by Chrome's licenses). One part of this project was a WASM-based MP4 muxer (not encumbered by MPEG LA patents), and that will be split off into a new WASM module that only muxes already-encoded H264 data. So, at least in future versions of Chrome, fast client-side media creation should still be possible.
 
+(Update: See [mp4-wasm](https://github.com/mattdesl/mp4-wasm/) for a possible solution that does not depend on an H264 encoder.)
+
 What follows is the previous version of the repository, with all the H264 WASM/C/C++ source code and binary files removed.
 
 ---
